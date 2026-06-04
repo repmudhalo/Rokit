@@ -1,24 +1,25 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, Activity, Tv, MonitorPlay, UserRound, LogIn, LogOut } from 'lucide-react'
-import { Rocket } from 'lucide-react'
+import { Home, Activity, Tv, MonitorPlay, UserRound, LogIn, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import Logo from './Logo.jsx'
 import { useAuth } from '../auth.jsx'
 
-// Minimal left icon rail + main content area. Nav is context-aware: signed-out
-// users see Home + Sign in; signed-in users get the dashboard sections, which
-// deep-link into the dashboard's tabs via ?tab=.
-function RailItem({ icon: Icon, label, to, active, onClick }) {
-  const className = `rail-item${active ? ' active' : ''}`
+// Collapsible left sidebar + main content. Expanded shows icon + label;
+// collapsed is an icon rail with hover tooltips. Nav is context-aware:
+// signed-out users see Home + Sign in; signed-in users get the dashboard tabs.
+function RailItem({ icon: Icon, label, to, active, onClick, className = '' }) {
+  const cls = `rail-item ${className}${active ? ' active' : ''}`
   const body = (
     <>
-      <Icon size={21} strokeWidth={2.1} />
+      <Icon size={20} strokeWidth={2.1} />
+      <span className="rail-label">{label}</span>
       <span className="tip">{label}</span>
     </>
   )
   return to ? (
-    <Link to={to} className={className} aria-label={label}>{body}</Link>
+    <Link to={to} className={cls} aria-label={label}>{body}</Link>
   ) : (
-    <button type="button" className={className} aria-label={label} onClick={onClick}>{body}</button>
+    <button type="button" className={cls} aria-label={label} onClick={onClick}>{body}</button>
   )
 }
 
@@ -30,32 +31,38 @@ export default function AppShell({ children }) {
   const onDash = loc.pathname.startsWith('/dashboard')
   const tab = params.get('tab') || 'live'
 
-  const doLogout = async () => {
-    await logout()
-    nav('/')
-  }
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('rokit:rail') === 'collapsed' } catch { return false }
+  })
+  const toggle = () =>
+    setCollapsed((c) => {
+      const next = !c
+      try { localStorage.setItem('rokit:rail', next ? 'collapsed' : 'expanded') } catch { /* ignore */ }
+      return next
+    })
+
+  const doLogout = async () => { await logout(); nav('/') }
 
   return (
     <>
       <div className="bg-aura" />
       <div className="shell">
-        <aside className="rail">
-          <Link to="/" className="rail-logo" aria-label="Rokit home">
-            <span className="logo-mark" style={{ width: 40, height: 40 }}>
-              <Rocket size={20} strokeWidth={2.4} />
-            </span>
-          </Link>
+        <aside className={`rail ${collapsed ? '' : 'expanded'}`}>
+          <div className="rail-top">
+            <Logo to="/" word size={36} />
+          </div>
 
-          <RailItem icon={Home} label="Home" to="/" active={loc.pathname === '/'} />
-
-          {user && (
-            <>
-              <RailItem icon={Activity} label="Live" to="/dashboard?tab=live" active={onDash && tab === 'live'} />
-              <RailItem icon={Tv} label="Channels" to="/dashboard?tab=channels" active={onDash && tab === 'channels'} />
-              <RailItem icon={MonitorPlay} label="Overlay" to="/dashboard?tab=overlay" active={onDash && tab === 'overlay'} />
-              <RailItem icon={UserRound} label="Account" to="/dashboard?tab=account" active={onDash && tab === 'account'} />
-            </>
-          )}
+          <nav className="rail-nav">
+            <RailItem icon={Home} label="Home" to="/" active={loc.pathname === '/'} />
+            {user && (
+              <>
+                <RailItem icon={Activity} label="Live" to="/dashboard?tab=live" active={onDash && tab === 'live'} />
+                <RailItem icon={Tv} label="Channels" to="/dashboard?tab=channels" active={onDash && tab === 'channels'} />
+                <RailItem icon={MonitorPlay} label="Overlay" to="/dashboard?tab=overlay" active={onDash && tab === 'overlay'} />
+                <RailItem icon={UserRound} label="Account" to="/dashboard?tab=account" active={onDash && tab === 'account'} />
+              </>
+            )}
+          </nav>
 
           <div className="rail-spacer" />
 
@@ -64,6 +71,13 @@ export default function AppShell({ children }) {
           ) : (
             <RailItem icon={LogIn} label="Sign in" to="/login" active={loc.pathname === '/login'} />
           )}
+
+          <RailItem
+            icon={collapsed ? PanelLeftOpen : PanelLeftClose}
+            label={collapsed ? 'Expand' : 'Collapse'}
+            onClick={toggle}
+            className="rail-toggle"
+          />
         </aside>
 
         <div className="shell-main">{children}</div>
