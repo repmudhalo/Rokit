@@ -1,0 +1,26 @@
+# Local Postgres for chataggr.
+#   docker compose up -d
+# Then in server/.env:
+#   DATABASE_URL=postgres://chataggr:chataggr@localhost:5432/chataggr
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: chataggr-db
+    environment:
+      POSTGRES_USER: chataggr
+      POSTGRES_PASSWORD: chataggr
+      POSTGRES_DB: chataggr
+    ports:
+      # Host port is overridable (PG_HOST_PORT) to avoid clashing with a
+      # pre-existing local Postgres. Container always listens on 5432.
+      - '${PG_HOST_PORT:-5432}:5432'
+    volumes:
+      - chataggr-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U chataggr']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chataggr-pgdata:
