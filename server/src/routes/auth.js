@@ -10,6 +10,7 @@ import {
 import { config, oauthEnabled } from '../config.js'
 import { buildAuthorizeUrl, exchangeCode, fetchTwitchUser } from '../auth/twitch-oauth.js'
 import { requireAuth } from '../auth/middleware.js'
+import { authLimiter } from '../middleware/ratelimit.js'
 import * as tokens from '../repos/tokens.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../mail/templates.js'
 
@@ -34,7 +35,7 @@ async function sendVerify(user) {
   await sendVerificationEmail(user, token)
 }
 
-authRouter.post('/register', async (req, res) => {
+authRouter.post('/register', authLimiter, async (req, res) => {
   const { email, password, displayName } = req.body || {}
   if (!EMAIL_RE.test(email || '')) return res.status(400).json({ error: 'invalid email' })
   if (!password || password.length < 8)
@@ -50,7 +51,7 @@ authRouter.post('/register', async (req, res) => {
   res.status(201).json({ user: publicUser(user) })
 })
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body || {}
   const user = await users.findByEmail(email || '')
   if (!user || !user.password_hash || !(await verifyPassword(password || '', user.password_hash)))
@@ -70,14 +71,14 @@ authRouter.get('/me', (req, res) => {
 })
 
 // ── email verification ───────────────────────────────────────────────────────
-authRouter.post('/verify-email', async (req, res) => {
+authRouter.post('/verify-email', authLimiter, async (req, res) => {
   const userId = await tokens.consume('verify_email', req.body?.token)
   if (!userId) return res.status(400).json({ error: 'invalid or expired link' })
   await users.setEmailVerified(userId, true)
   res.json({ ok: true })
 })
 
-authRouter.post('/verify-email/resend', requireAuth, async (req, res) => {
+authRouter.post('/verify-email/resend', authLimiter, requireAuth, async (req, res) => {
   if (!req.user.email) return res.status(400).json({ error: 'account has no email' })
   if (req.user.email_verified) return res.json({ ok: true, alreadyVerified: true })
   await sendVerify(req.user)
@@ -85,7 +86,7 @@ authRouter.post('/verify-email/resend', requireAuth, async (req, res) => {
 })
 
 // ── password reset ───────────────────────────────────────────────────────────
-authRouter.post('/forgot-password', async (req, res) => {
+authRouter.post('/forgot-password', authLimiter, async (req, res) => {
   const email = req.body?.email
   if (EMAIL_RE.test(email || '')) {
     const user = await users.findByEmail(email)
@@ -99,7 +100,7 @@ authRouter.post('/forgot-password', async (req, res) => {
   res.json({ ok: true })
 })
 
-authRouter.post('/reset-password', async (req, res) => {
+authRouter.post('/reset-password', authLimiter, async (req, res) => {
   const { token, password } = req.body || {}
   if (!password || password.length < 8)
     return res.status(400).json({ error: 'password must be at least 8 characters' })

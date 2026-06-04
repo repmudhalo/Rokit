@@ -12,6 +12,8 @@ export const config = {
   backlogSize: num(process.env.BACKLOG_SIZE, 50),
   idleMs: num(process.env.HUB_IDLE_MS, 60000),
   maxSourcesPerUser: num(process.env.MAX_SOURCES_PER_USER, 25),
+  // # of proxy hops to trust for the real client IP (Railway/most PaaS = 1).
+  trustProxy: num(process.env.TRUST_PROXY, 1),
   twitch: {
     clientId: process.env.TWITCH_CLIENT_ID || '',
     clientSecret: process.env.TWITCH_CLIENT_SECRET || '',
