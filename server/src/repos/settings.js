@@ -30,6 +30,7 @@ export async function get(userId) {
 const FIELDS = [
   'font_size', 'max_messages', 'theme', 'show_badges', 'show_platform',
   'platform_style', 'platform_plain', 'show_channel', 'message_bg', 'text_shadow', 'bg_opacity',
+  'hype',
 ]
 
 export async function update(userId, patch) {
@@ -38,7 +39,8 @@ export async function update(userId, patch) {
   const vals = [userId]
   for (const f of FIELDS) {
     if (patch[f] !== undefined) {
-      vals.push(patch[f])
+      // hype is a JSONB column — stringify the object for the driver.
+      vals.push(f === 'hype' ? JSON.stringify(patch[f]) : patch[f])
       sets.push(`${f} = $${vals.length}`)
     }
   }

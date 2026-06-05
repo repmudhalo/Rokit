@@ -8,6 +8,7 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Overlay from './pages/Overlay.jsx'
+import Hype from './pages/Hype.jsx'
 import VerifyEmail from './pages/VerifyEmail.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
@@ -25,6 +26,7 @@ function Root() {
     <Routes>
       {/* Standalone (no shell): transparent overlay + focused auth screens. */}
       <Route path="/overlay" element={<Overlay />} />
+      <Route path="/hype" element={<Hype />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-email" element={<VerifyEmail />} />

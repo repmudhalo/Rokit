@@ -15,6 +15,39 @@ settingsRouter.get('/', async (req, res) => {
 
 const oneOf = (v, allowed, dflt) => (allowed.includes(v) ? v : dflt)
 
+const clampNum = (v, min, max, dflt) => {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return dflt
+  return Math.min(max, Math.max(min, n))
+}
+
+// Sanitize the Hype Meter config so only well-formed, bounded data is stored.
+function cleanWords(arr) {
+  if (!Array.isArray(arr)) return []
+  const out = []
+  for (const it of arr) {
+    const word = String(it?.word ?? '').trim().slice(0, 24)
+    if (!word) continue
+    out.push({ word, weight: clampNum(it?.weight, 0.1, 5, 1) })
+    if (out.length >= 40) break
+  }
+  return out
+}
+
+function cleanHype(h) {
+  const o = h && typeof h === 'object' ? h : {}
+  return {
+    style: oneOf(o.style, ['bar', 'vertical', 'gauge', 'segments'], 'bar'),
+    label: String(o.label ?? 'CHAT HYPE').slice(0, 24),
+    color: /^#[0-9a-fA-F]{6}$/.test(o.color) ? o.color : '#8cd1ff',
+    sensitivity: clampInt(o.sensitivity, 1, 10, 5),
+    decay: clampInt(o.decay, 1, 10, 5),
+    show_value: o.show_value !== false,
+    boost: cleanWords(o.boost),
+    drain: cleanWords(o.drain),
+  }
+}
+
 settingsRouter.put('/', async (req, res) => {
   const b = req.body || {}
   const patch = {}
@@ -29,5 +62,6 @@ settingsRouter.put('/', async (req, res) => {
   if (b.message_bg !== undefined) patch.message_bg = oneOf(b.message_bg, ['none', 'plate'], 'none')
   if (b.text_shadow !== undefined) patch.text_shadow = Boolean(b.text_shadow)
   if (b.bg_opacity !== undefined) patch.bg_opacity = clampInt(b.bg_opacity, 0, 100, 0)
+  if (b.hype !== undefined) patch.hype = cleanHype(b.hype)
   res.json({ settings: await settingsRepo.update(req.user.id, patch) })
 })

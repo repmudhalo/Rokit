@@ -2,18 +2,20 @@ import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Tv, MonitorPlay, UserRound, Link2, SlidersHorizontal, KeyRound, Eye, Copy, RefreshCw, ExternalLink, Plus, Trash2, Activity, MessageSquare, Pin, X, Search, Gauge, Pause, Image,
-  ALargeSmall, List, Contrast, Tag, BadgeCheck, Sparkles, Info, Columns3,
+  ALargeSmall, List, Contrast, Tag, BadgeCheck, Sparkles, Info, Columns3, Flame,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { api } from '../api.js'
 import { useChatSocket } from '../useChatSocket.js'
 import ChatList from '../ChatList.jsx'
 import { appearanceFrom } from '../appearance.js'
+import { useHype, normalizeHype } from '../hype.js'
+import HypeMeter from '../HypeMeter.jsx'
 
 const TABS = {
   live: { title: 'Live', sub: 'Realtime stream activity and merged chat.' },
   channels: { title: 'Channels', sub: 'Connect the platforms you stream on.' },
-  overlay: { title: 'Overlay', sub: 'Your OBS browser-source URL and appearance.' },
+  overlay: { title: 'Stream tools', sub: 'OBS & Streamlabs overlays — merged chat and the hype meter.' },
   account: { title: 'Account', sub: 'Profile, email and password.' },
 }
 
@@ -23,8 +25,9 @@ export default function Dashboard() {
   const tab = TABS[params.get('tab')] ? params.get('tab') : 'live'
 
   const [sources, setSources] = useState([])
-  const [overlay, setOverlay] = useState({ token: '', url: '' })
+  const [overlay, setOverlay] = useState({ token: '', url: '', hypeUrl: '' })
   const [settings, setSettings] = useState(null)
+  const [tool, setTool] = useState('chat') // stream-tools sub-tab: 'chat' | 'hype'
 
   const loadAll = async () => {
     const [s, o, st] = await Promise.all([
@@ -69,13 +72,39 @@ export default function Dashboard() {
         )}
 
         {tab === 'overlay' && (
-          <div className="grid two">
-            <div>
-              <OverlayPanel overlay={overlay} setOverlay={setOverlay} />
-              <OverlayHelpPanel />
-              {settings && <SettingsPanel settings={settings} setSettings={setSettings} />}
+          <div className="tools">
+            <div className="tools-switch">
+              <button type="button" className={`tool-tab ${tool === 'chat' ? 'on' : ''}`} onClick={() => setTool('chat')}>
+                <MessageSquare size={16} />
+                <span><b>Chat overlay</b><small>Merged Twitch · Kick · X chat</small></span>
+              </button>
+              <button type="button" className={`tool-tab ${tool === 'hype' ? 'on' : ''}`} onClick={() => setTool('hype')}>
+                <Flame size={16} />
+                <span><b>Hype meter</b><small>A bar that reacts to chat energy</small></span>
+              </button>
             </div>
-            <PreviewPanel token={overlay.token} settings={settings} />
+
+            {tool === 'chat' && (
+              <div className="grid two">
+                <div>
+                  <OverlayPanel overlay={overlay} setOverlay={setOverlay} />
+                  <OverlayHelpPanel urlName="overlay URL" />
+                  {settings && <SettingsPanel settings={settings} setSettings={setSettings} />}
+                </div>
+                <PreviewPanel token={overlay.token} settings={settings} />
+              </div>
+            )}
+
+            {tool === 'hype' && (
+              <div className="grid two">
+                <div>
+                  <HypeOverlayPanel overlay={overlay} />
+                  <OverlayHelpPanel urlName="Hype Meter URL" />
+                  {settings && <HypeSettingsPanel settings={settings} setSettings={setSettings} />}
+                </div>
+                <HypePreviewPanel token={overlay.token} settings={settings} />
+              </div>
+            )}
           </div>
         )}
 
@@ -199,29 +228,29 @@ function OverlayPanel({ overlay, setOverlay }) {
   )
 }
 
-// ── how to add the overlay to OBS / Streamlabs ───────────────────────────────
-const OBS_STEPS = [
+// ── how to add an overlay to OBS / Streamlabs ────────────────────────────────
+const obsSteps = (name) => [
   <>In OBS, under <b>Sources</b>, click <b>+</b> → <b>Browser</b>.</>,
-  <>Name it (e.g. “Rokit Chat”) and click <b>OK</b>.</>,
-  <>Paste your <b>overlay URL</b> (above) into the <b>URL</b> field.</>,
-  <>Set <b>Width</b> &amp; <b>Height</b> to fit your layout (e.g. 400 × 800).</>,
-  <>Click <b>OK</b>, then drag &amp; resize it in your scene — chat appears live.</>,
+  <>Name it and click <b>OK</b>.</>,
+  <>Paste your <b>{name}</b> (above) into the <b>URL</b> field.</>,
+  <>Set <b>Width</b> &amp; <b>Height</b> to fit your layout.</>,
+  <>Click <b>OK</b>, then drag &amp; resize it in your scene — it updates live.</>,
 ]
-const SL_STEPS = [
+const slSteps = (name) => [
   <>In Streamlabs, in the <b>Sources</b> panel click <b>+</b> → <b>Browser Source</b> → <b>Add Source</b>.</>,
   <>Give it a name and click <b>Add Source</b>.</>,
-  <>Paste your <b>overlay URL</b> (above) into the <b>URL</b> field.</>,
+  <>Paste your <b>{name}</b> (above) into the <b>URL</b> field.</>,
   <>Set <b>Width</b> &amp; <b>Height</b> to fit your layout.</>,
   <>Click <b>Done</b>, then position it in your editor.</>,
 ]
 
-function OverlayHelpPanel() {
+function OverlayHelpPanel({ urlName = 'overlay URL' }) {
   const [app, setApp] = useState('obs')
-  const steps = app === 'obs' ? OBS_STEPS : SL_STEPS
+  const steps = app === 'obs' ? obsSteps(urlName) : slSteps(urlName)
   return (
     <section className="panel">
       <h2><MonitorPlay size={17} /> Add it to your stream</h2>
-      <p className="sub">Drop the overlay URL into your streaming software as a browser source.</p>
+      <p className="sub">Drop the {urlName} into your streaming software as a browser source.</p>
       <div className="seg-control" style={{ marginBottom: 16 }}>
         <button type="button" className={app === 'obs' ? 'on' : ''} onClick={() => setApp('obs')}>OBS Studio</button>
         <button type="button" className={app === 'streamlabs' ? 'on' : ''} onClick={() => setApp('streamlabs')}>Streamlabs</button>
@@ -231,7 +260,7 @@ function OverlayHelpPanel() {
       </ol>
       <p className="help-tip">
         The background is transparent, so it sits cleanly over your scene. Keep the URL private —
-        anyone with it can see your merged chat.
+        anyone with it can use your overlay.
       </p>
     </section>
   )
@@ -365,6 +394,149 @@ function SettingsPanel({ settings, setSettings }) {
       </div>
 
       <button className="btn primary block" onClick={save} disabled={saving}>{saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save to overlay'}</button>
+    </section>
+  )
+}
+
+// ── hype meter ───────────────────────────────────────────────────────────────
+function HypeOverlayPanel({ overlay }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    await navigator.clipboard.writeText(overlay.hypeUrl || '')
+    setCopied(true); setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <section className="panel">
+      <h2><Flame size={17} /> Hype Meter URL</h2>
+      <p className="sub">A live bar that fills as chat speeds up — add it as a Browser source. Same token as your chat overlay.</p>
+      <div className="overlay-url">
+        <input readOnly value={overlay.hypeUrl || ''} onFocus={(e) => e.target.select()} />
+        <button className="btn" onClick={copy}><Copy size={15} /> {copied ? 'Copied!' : 'Copy'}</button>
+      </div>
+      <div className="row-actions">
+        <a className="btn ghost sm" href={overlay.hypeUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open</a>
+      </div>
+    </section>
+  )
+}
+
+// Editable list of boost/drain keywords (weights default to 2; preserved on load).
+function WordChips({ words, onChange, kind }) {
+  const [val, setVal] = useState('')
+  const add = (e) => {
+    e.preventDefault()
+    const w = val.trim().slice(0, 24)
+    if (!w) return
+    if (!words.some((x) => x.word.toLowerCase() === w.toLowerCase())) {
+      onChange([...words, { word: w, weight: 2 }].slice(0, 40))
+    }
+    setVal('')
+  }
+  const remove = (word) => onChange(words.filter((x) => x.word !== word))
+  return (
+    <div className={`word-chips ${kind}`}>
+      {words.map((x) => (
+        <span key={x.word} className="word-chip">
+          {x.word}
+          <button type="button" onClick={() => remove(x.word)} aria-label={`remove ${x.word}`}><X size={11} /></button>
+        </span>
+      ))}
+      <form onSubmit={add} className="word-add">
+        <input value={val} onChange={(e) => setVal(e.target.value)} placeholder="add word…" />
+      </form>
+    </div>
+  )
+}
+
+const HYPE_COLORS = ['#8cd1ff', '#53fc18', '#ff5c5c', '#ffb13d', '#c77dff', '#ffffff']
+
+function HypeSettingsPanel({ settings, setSettings }) {
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const h = normalizeHype(settings.hype)
+  const update = (patch) => {
+    setSettings((s) => ({ ...s, hype: { ...normalizeHype(s.hype), ...patch } }))
+    setSaved(false)
+  }
+  const save = async () => {
+    setSaving(true)
+    try {
+      const { settings: srv } = await api.put('/api/settings', { ...settings, hype: normalizeHype(settings.hype) })
+      setSettings(srv)
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <section className="panel appearance-panel">
+      <h2><SlidersHorizontal size={17} /> Hype settings</h2>
+      <p className="sub">Tune how the meter reacts. It previews live on the right.</p>
+
+      <Field icon={Sparkles} label="Meter style">
+        <Seg
+          value={h.style}
+          onChange={(v) => update({ style: v })}
+          options={[
+            { value: 'bar', label: 'Bar' },
+            { value: 'vertical', label: 'Vertical' },
+            { value: 'gauge', label: 'Gauge' },
+            { value: 'segments', label: 'Segments' },
+          ]}
+        />
+      </Field>
+
+      <Field icon={Tag} label="Label">
+        <input className="text-input" value={h.label} maxLength={24} onChange={(e) => update({ label: e.target.value })} placeholder="CHAT HYPE" />
+      </Field>
+
+      <Field label="Color">
+        <div className="color-row">
+          {HYPE_COLORS.map((c) => (
+            <button key={c} type="button" className={`color-dot ${h.color.toLowerCase() === c.toLowerCase() ? 'on' : ''}`} style={{ background: c }} onClick={() => update({ color: c })} aria-label={c} />
+          ))}
+          <input type="color" className="color-pick" value={h.color} onChange={(e) => update({ color: e.target.value })} aria-label="Custom color" />
+        </div>
+      </Field>
+
+      <Field icon={Gauge} label={<>Sensitivity <span className="val">{h.sensitivity}</span></>}>
+        <input type="range" min="1" max="10" value={h.sensitivity} onChange={(e) => update({ sensitivity: Number(e.target.value) })} />
+      </Field>
+
+      <Field icon={Activity} label={<>Fall speed <span className="val">{h.decay}</span></>}>
+        <input type="range" min="1" max="10" value={h.decay} onChange={(e) => update({ decay: Number(e.target.value) })} />
+      </Field>
+
+      <Field label={<>Boost words <span className="val">make it rise</span></>}>
+        <WordChips words={h.boost} kind="boost" onChange={(w) => update({ boost: w })} />
+      </Field>
+
+      <Field label={<>Drain words <span className="val">make it fall</span></>}>
+        <WordChips words={h.drain} kind="drain" onChange={(w) => update({ drain: w })} />
+      </Field>
+
+      <div className="set-switches">
+        <SwitchRow on={h.show_value} onChange={(v) => update({ show_value: v })} title="Show percentage" desc="Display the live hype % on the meter" />
+      </div>
+
+      <button className="btn primary block" onClick={save} disabled={saving}>{saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save to overlay'}</button>
+    </section>
+  )
+}
+
+function HypePreviewPanel({ token, settings }) {
+  const { messages, config, status } = useChatSocket({ token, max: 120 })
+  const cfg = normalizeHype(settings?.hype ?? config?.hype)
+  const level = useHype(messages, cfg)
+  return (
+    <section className="panel preview-panel">
+      <div className="preview-head">
+        <h2><Eye size={17} /> Hype preview</h2>
+        <span className={`status status-${status}`}>{status}</span>
+      </div>
+      <div className="preview-window hype-preview-window">
+        <HypeMeter level={level} cfg={cfg} />
+      </div>
+      <p className="muted small" style={{ marginTop: 10 }}>Reacts to live chat speed and your boost/drain words. Go live and chat to see it move.</p>
     </section>
   )
 }

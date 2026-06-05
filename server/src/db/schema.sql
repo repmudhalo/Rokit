@@ -58,3 +58,7 @@ ALTER TABLE overlay_settings ADD COLUMN IF NOT EXISTS show_channel   BOOLEAN NOT
 ALTER TABLE overlay_settings ADD COLUMN IF NOT EXISTS message_bg     TEXT NOT NULL DEFAULT 'none';     -- 'none' | 'plate'
 ALTER TABLE overlay_settings ADD COLUMN IF NOT EXISTS text_shadow    BOOLEAN NOT NULL DEFAULT true;    -- outline for readability
 ALTER TABLE overlay_settings ADD COLUMN IF NOT EXISTS bg_opacity     INT NOT NULL DEFAULT 0;           -- 0-100 backdrop behind chat (0 = transparent)
+
+-- Chat Hype Meter config (style, label, color, sensitivity, decay, keyword
+-- weights). Stored as JSON so the shape can evolve without migrations.
+ALTER TABLE overlay_settings ADD COLUMN IF NOT EXISTS hype JSONB NOT NULL DEFAULT '{}'::jsonb;
