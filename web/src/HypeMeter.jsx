@@ -2,7 +2,7 @@ import React from 'react'
 import { hypeTier, heatColor } from './hype.js'
 
 const SEGMENTS = 12
-const R = 52
+const R = 46 // leaves margin inside the 120-unit viewBox so the glow isn't clipped
 const C = 2 * Math.PI * R
 
 // Presentational hype meter. `level` is 0..100; `cfg` is a normalized hype
