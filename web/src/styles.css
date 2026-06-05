@@ -537,7 +537,7 @@ input, select, textarea { font-family: var(--mono); }
 .live-column:last-child { border-right: none; }
 .live-column-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); }
 .live-column-count { font: 700 11px/1 var(--mono); color: var(--text-mute); font-variant-numeric: tabular-nums; }
-.live-column-feed { flex: 1; min-height: 0; overflow: hidden; }
+.live-column-feed { flex: 1; min-height: 0; overflow: hidden; position: relative; }
 @media (max-width: 760px) { .live-columns { overflow-x: auto; } .live-column { min-width: 240px; } }
 
 /* X platform tag */

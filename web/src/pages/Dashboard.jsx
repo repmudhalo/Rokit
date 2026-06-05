@@ -463,6 +463,31 @@ const SLOW_RATES = [
   { label: '8s', ms: 8000 },
 ]
 
+// One platform's column in the split Live view. Hovering freezes just this
+// column (so you can read/pin it) while the others keep flowing.
+function LiveColumn({ platform, messages, options, onPin }) {
+  const [hovering, setHovering] = useState(false)
+  const frozenRef = useRef([])
+  if (!hovering) frozenRef.current = messages
+  const display = hovering ? frozenRef.current : messages
+  return (
+    <div className="live-column" data-platform={platform}>
+      <div className="live-column-head">
+        <span className="tag" data-platform={platform}>{platform}</span>
+        <span className="live-column-count">{messages.length}</span>
+      </div>
+      <div
+        className="live-column-feed"
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+      >
+        <ChatList messages={display} className="preview-list" options={options} onPin={onPin} />
+        {hovering && <div className="paused-badge"><Pause size={12} /> Paused</div>}
+      </div>
+    </div>
+  )
+}
+
 function LiveTab({ token, sources }) {
   // Reading/moderation feed keeps a big scrollback so messages persist (the OBS
   // overlay's small max-messages is for the overlay, not this tab).
@@ -620,15 +645,13 @@ function LiveTab({ token, sources }) {
                   .filter((m) => m.platform === p && (!q || (m.text || '').toLowerCase().includes(q)))
                   .slice(-200)
                 return (
-                  <div key={p} className="live-column" data-platform={p}>
-                    <div className="live-column-head">
-                      <span className="tag" data-platform={p}>{p}</span>
-                      <span className="live-column-count">{colMsgs.length}</span>
-                    </div>
-                    <div className="live-column-feed">
-                      <ChatList messages={colMsgs} className="preview-list" options={{ ...options, showPlatform: false }} onPin={pin} />
-                    </div>
-                  </div>
+                  <LiveColumn
+                    key={p}
+                    platform={p}
+                    messages={colMsgs}
+                    options={{ ...options, showPlatform: false }}
+                    onPin={pin}
+                  />
                 )
               })}
             </div>
