@@ -167,25 +167,21 @@ h1, h2, h3 { font-family: var(--display); letter-spacing: -0.01em; font-weight: 
   font: 600 13px/1 var(--mono);
   transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
-.rail-item svg { transition: transform 0.16s ease, filter 0.16s ease; }
 .rail.expanded .rail-item { width: 100%; justify-content: flex-start; padding: 0 12px; gap: 12px; }
 
 .rail-item:hover { color: var(--text); background: var(--hover); }
-.rail-item:hover svg { transform: scale(1.08); }
 
-/* active — gradient pill, accent edge bar, glowing icon, bright label */
+/* active — flat accent fill + simple edge bar (no shadows/glow) */
 .rail-item.active {
   color: #fff;
-  background: linear-gradient(100deg, rgba(140, 209, 255, 0.18), rgba(140, 209, 255, 0.045));
-  border-color: rgba(140, 209, 255, 0.30);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 22px -10px rgba(140, 209, 255, 0.45);
+  background: var(--accent-wash);
+  border-color: rgba(140, 209, 255, 0.22);
 }
-.rail-item.active svg { color: var(--accent); filter: drop-shadow(0 0 7px rgba(140, 209, 255, 0.55)); }
+.rail-item.active svg { color: var(--accent); }
 .rail-item.active .rail-label { color: #fff; font-weight: 700; }
 .rail-item.active::before {
   content: ''; position: absolute; top: 50%; transform: translateY(-50%);
   width: 3px; background: var(--accent); border-radius: 0 3px 3px 0;
-  box-shadow: 0 0 8px rgba(140, 209, 255, 0.7);
 }
 .rail:not(.expanded) .rail-item.active::before { left: -14px; height: 22px; }
 .rail.expanded .rail-item.active::before { left: -12px; height: 24px; }
