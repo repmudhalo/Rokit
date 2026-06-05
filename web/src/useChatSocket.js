@@ -60,9 +60,23 @@ export function useChatSocket({ token, max = 200 } = {}) {
       }
       if (!added) return
 
-      if (list.length > max) {
-        const removed = list.splice(0, list.length - max)
-        for (const m of removed) seenRef.current.delete(m.id)
+      // Per-platform fairness: cap EACH platform at `max` independently, so a
+      // high-volume platform (Twitch/Kick) can't evict a low-volume one (X)
+      // from the shared buffer. We drop only a platform's own oldest messages
+      // once it exceeds the cap, leaving the chronological order intact.
+      const counts = {}
+      for (const m of list) counts[m.platform] = (counts[m.platform] || 0) + 1
+      for (const plat in counts) {
+        let over = counts[plat] - max
+        for (let i = 0; i < list.length && over > 0; ) {
+          if (list[i].platform === plat) {
+            seenRef.current.delete(list[i].id)
+            list.splice(i, 1)
+            over--
+          } else {
+            i++
+          }
+        }
       }
 
       const cutoff = now - 60000
