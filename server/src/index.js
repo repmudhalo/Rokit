@@ -1,4 +1,5 @@
 import http from 'node:http'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import express from 'express'
@@ -21,7 +22,11 @@ import { attachWebSocket } from './ws.js'
 import { manager } from './hub/manager.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const publicDir = path.join(__dirname, '..', 'public')
+// The built frontend (web/dist). Present for integrated/local deploys; absent
+// when this runs as an API-only backend (e.g. frontend hosted on Vercel).
+const publicDir = path.join(__dirname, '..', '..', 'web', 'dist')
+const indexHtml = path.join(publicDir, 'index.html')
+const hasFrontend = fs.existsSync(indexHtml)
 
 const app = express()
 // Behind a proxy (Railway etc.) so req.ip / rate-limit see the real client IP.
@@ -61,8 +66,14 @@ app.use('/api/overlay', requireAuth, overlayRouter)
 app.use('/api', (_req, res) => res.status(404).json({ error: 'not found' }))
 
 // ── static frontend + SPA fallback ───────────────────────────────────────────
-app.use(express.static(publicDir))
-app.get('*', (_req, res) => res.sendFile(path.join(publicDir, 'index.html')))
+// Only when a build exists. API-only deploys (frontend elsewhere) 404 non-API
+// routes as JSON instead of trying to serve a missing index.html.
+if (hasFrontend) {
+  app.use(express.static(publicDir))
+  app.get('*', (_req, res) => res.sendFile(indexHtml))
+} else {
+  app.get('*', (_req, res) => res.status(404).json({ error: 'not found' }))
+}
 
 // ── error handler: turn any thrown/rejected route error into JSON 500 ─────────
 app.use((err, req, res, next) => {

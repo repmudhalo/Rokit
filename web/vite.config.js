@@ -18,8 +18,9 @@ export default defineConfig({
     },
   },
   build: {
-    // Emit into the server so `npm start` can serve the built app.
-    outDir: '../server/public',
+    // Conventional Vite output (web/dist). Vercel serves this directly; the
+    // Node server (integrated/local) also serves web/dist — see server/index.js.
+    outDir: 'dist',
     emptyOutDir: true,
   },
 })
