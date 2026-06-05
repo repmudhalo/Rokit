@@ -7,15 +7,14 @@ const C = 2 * Math.PI * R
 
 // Presentational hype meter. `level` is 0..100; `cfg` is a normalized hype
 // config. Pure — drive `level` with useHype. The whole thing gets livelier as
-// the level rises: color shifts cold→hot, glow grows (--lvl), and the top tier
-// flashes / catches fire (see tier-* classes in styles.css).
+// the level rises: color shifts cold→hot, glow grows (--lvl), an animated sheen
+// sweeps the fill, and the top tier flashes (see tier-* classes in styles.css).
 export default function HypeMeter({ level = 0, cfg }) {
   const pct = Math.round(level)
   const tier = hypeTier(level)
   const color = cfg.dynamic_color ? heatColor(level) : cfg.color
   const rootClass = `hype hype-${cfg.style} tier-${tier.replace(/\s+/g, '-')}`
   const rootStyle = { '--hype': color, '--lvl': (level / 100).toFixed(3) }
-  const flame = <span className="hype-flame" aria-hidden="true">🔥</span>
   const label = <span className="hype-label">{cfg.label}</span>
   const value = cfg.show_value && <span className="hype-pct">{pct}%</span>
 
@@ -24,7 +23,7 @@ export default function HypeMeter({ level = 0, cfg }) {
       <div className={rootClass} style={rootStyle}>
         {label}
         <div className="hype-track">
-          <div className="hype-fill" style={{ height: `${level}%` }}><span className="hype-sheen" />{flame}</div>
+          <div className="hype-fill" style={{ height: `${level}%` }}><span className="hype-sheen" /></div>
         </div>
         {value}
       </div>
@@ -45,7 +44,6 @@ export default function HypeMeter({ level = 0, cfg }) {
           />
         </svg>
         <div className="hype-ring-center">
-          {flame}
           {value}
           {label}
         </div>
@@ -65,7 +63,7 @@ export default function HypeMeter({ level = 0, cfg }) {
             return <span key={i} className={`hype-seg ${on ? 'on' : ''}`} style={on ? { background: segColor, borderColor: segColor } : undefined} />
           })}
         </div>
-        <div className="hype-tier">{tier} {flame}</div>
+        <div className="hype-tier">{tier}</div>
       </div>
     )
   }
@@ -77,7 +75,6 @@ export default function HypeMeter({ level = 0, cfg }) {
       <div className="hype-track">
         <div className="hype-fill" style={{ width: `${level}%` }}>
           <span className="hype-sheen" />
-          {flame}
         </div>
       </div>
     </div>
