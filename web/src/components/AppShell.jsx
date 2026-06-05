@@ -67,9 +67,9 @@ export default function AppShell({ children }) {
           <div className="rail-spacer" />
 
           {user ? (
-            <RailItem icon={LogOut} label="Log out" onClick={doLogout} />
+            <RailItem icon={LogOut} label="Log out" onClick={doLogout} className="rail-logout" />
           ) : (
-            <RailItem icon={LogIn} label="Sign in" to="/login" active={loc.pathname === '/login'} />
+            <RailItem icon={LogIn} label="Sign in" to="/login" active={loc.pathname === '/login'} className="rail-signin" />
           )}
 
           <RailItem

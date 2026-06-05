@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Tv, MonitorPlay, UserRound, Link2, SlidersHorizontal, KeyRound, Eye, Copy, RefreshCw, ExternalLink, Plus, Trash2, Activity, MessageSquare, Pin, X, Search, Gauge, Pause, Image,
-  ALargeSmall, List, Contrast, Tag, EyeOff, SquareDashed, RectangleHorizontal, Frame, Type, BadgeCheck, Hash,
+  ALargeSmall, List, Contrast, Tag, BadgeCheck, Sparkles, Info, Columns3,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { api } from '../api.js'
@@ -72,6 +72,7 @@ export default function Dashboard() {
           <div className="grid two">
             <div>
               <OverlayPanel overlay={overlay} setOverlay={setOverlay} />
+              <OverlayHelpPanel />
               {settings && <SettingsPanel settings={settings} setSettings={setSettings} />}
             </div>
             <PreviewPanel token={overlay.token} settings={settings} />
@@ -109,7 +110,7 @@ function SourcesPanel({ sources, onChange }) {
   return (
     <section className="panel">
       <h2><Tv size={17} /> Your channels</h2>
-      <p className="sub">Add the Twitch / Kick channels whose chat you want merged.</p>
+      <p className="sub">Add the Twitch, Kick or X channels whose chat you want merged.</p>
 
       {sources.length === 0 ? (
         <div className="source-empty">No channels yet — add your first one below.</div>
@@ -119,6 +120,7 @@ function SourcesPanel({ sources, onChange }) {
             <li key={s.id} className="source-row">
               <span className="tag" data-platform={s.platform}>{s.platform}</span>
               <span className="source-name">{s.channel}</span>
+              {s.platform === 'x' && <span className="row-note" title="X gives a new broadcast link each time you go live — update this before each stream">new link each stream</span>}
               <label className="switch" title={s.enabled ? 'Enabled' : 'Disabled'}>
                 <input type="checkbox" checked={s.enabled} onChange={() => toggle(s)} />
                 <span />
@@ -141,7 +143,7 @@ function SourcesPanel({ sources, onChange }) {
             placeholder={
               platform === 'twitch' ? 'twitch channel name'
                 : platform === 'kick' ? 'kick channel slug'
-                : 'x.com/i/broadcasts/…'
+                : 'paste your live x.com/i/broadcasts/… URL'
             }
             value={channel}
             onChange={(e) => setChannel(e.target.value)}
@@ -153,11 +155,22 @@ function SourcesPanel({ sources, onChange }) {
           <input className="chatroom-input" placeholder="optional: chatroom id (if auto-resolve fails)" value={chatroomId} onChange={(e) => setChatroomId(e.target.value)} />
         )}
       </form>
-      <p className="muted small" style={{ marginTop: 12 }}>
-        {platform === 'x'
-          ? 'X is experimental — paste a live broadcast URL while it’s on air. Unofficial; may break.'
-          : 'Tip: for X, switch the dropdown to “X (live)” and paste a broadcast URL.'}
-      </p>
+
+      {platform === 'x' ? (
+        <div className="x-note">
+          <Info size={16} />
+          <div>
+            <strong>X gives you a new link every time you go live.</strong> Unlike Twitch/Kick, X has no fixed
+            channel — each stream is a fresh <em>broadcast</em>. Paste your <em>current</em> broadcast URL, and
+            update it here whenever you go live again.
+            <span className="x-note-how">Find it: go live on X, open your broadcast, and copy the page URL (it looks like <code>x.com/i/broadcasts/…</code>). Experimental &amp; unofficial — may break.</span>
+          </div>
+        </div>
+      ) : (
+        <p className="muted small" style={{ marginTop: 12 }}>
+          For <b>X</b>, switch the dropdown to “X (live)” and paste your current live broadcast URL.
+        </p>
+      )}
     </section>
   )
 }
@@ -186,23 +199,65 @@ function OverlayPanel({ overlay, setOverlay }) {
   )
 }
 
-// ── appearance ───────────────────────────────────────────────────────────────
-const TwitchGlyph = () => (
-  <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true">
-    <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
-  </svg>
-)
+// ── how to add the overlay to OBS / Streamlabs ───────────────────────────────
+const OBS_STEPS = [
+  <>In OBS, under <b>Sources</b>, click <b>+</b> → <b>Browser</b>.</>,
+  <>Name it (e.g. “Rokit Chat”) and click <b>OK</b>.</>,
+  <>Paste your <b>overlay URL</b> (above) into the <b>URL</b> field.</>,
+  <>Set <b>Width</b> &amp; <b>Height</b> to fit your layout (e.g. 400 × 800).</>,
+  <>Click <b>OK</b>, then drag &amp; resize it in your scene — chat appears live.</>,
+]
+const SL_STEPS = [
+  <>In Streamlabs, in the <b>Sources</b> panel click <b>+</b> → <b>Browser Source</b> → <b>Add Source</b>.</>,
+  <>Give it a name and click <b>Add Source</b>.</>,
+  <>Paste your <b>overlay URL</b> (above) into the <b>URL</b> field.</>,
+  <>Set <b>Width</b> &amp; <b>Height</b> to fit your layout.</>,
+  <>Click <b>Done</b>, then position it in your editor.</>,
+]
 
-// Picker where each choice shows a mini live example of the result (WYSIWYG).
-function OptionCards({ value, onChange, options }) {
+function OverlayHelpPanel() {
+  const [app, setApp] = useState('obs')
+  const steps = app === 'obs' ? OBS_STEPS : SL_STEPS
   return (
-    <div className="opt-cards" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+    <section className="panel">
+      <h2><MonitorPlay size={17} /> Add it to your stream</h2>
+      <p className="sub">Drop the overlay URL into your streaming software as a browser source.</p>
+      <div className="seg-control" style={{ marginBottom: 16 }}>
+        <button type="button" className={app === 'obs' ? 'on' : ''} onClick={() => setApp('obs')}>OBS Studio</button>
+        <button type="button" className={app === 'streamlabs' ? 'on' : ''} onClick={() => setApp('streamlabs')}>Streamlabs</button>
+      </div>
+      <ol className="help-steps">
+        {steps.map((s, i) => <li key={i}>{s}</li>)}
+      </ol>
+      <p className="help-tip">
+        The background is transparent, so it sits cleanly over your scene. Keep the URL private —
+        anyone with it can see your merged chat.
+      </p>
+    </section>
+  )
+}
+
+// ── appearance ───────────────────────────────────────────────────────────────
+// A realistic sample message used to preview each appearance choice.
+// Compact segmented control — connected text pills (tight, clear, not stretched).
+function Seg({ value, onChange, options }) {
+  return (
+    <div className="seg-control">
       {options.map((o) => (
-        <button key={o.value} type="button" className={`opt-card ${value === o.value ? 'active' : ''}`} onClick={() => onChange(o.value)}>
-          <div className="opt-demo">{o.demo}</div>
-          <div className="opt-label">{o.label}</div>
+        <button key={o.value} type="button" className={value === o.value ? 'on' : ''} onClick={() => onChange(o.value)}>
+          {o.label}
         </button>
       ))}
+    </div>
+  )
+}
+
+// A labelled settings field: label (+ optional value) on top, control below.
+function Field({ icon: Icon, label, children }) {
+  return (
+    <div className="set-field">
+      <div className="set-field-label">{Icon && <Icon size={13} />}<span>{label}</span></div>
+      {children}
     </div>
   )
 }
@@ -223,6 +278,15 @@ function SwitchRow({ on, onChange, title, desc, disabled }) {
   )
 }
 
+// One-click complete looks.
+const PRESETS = [
+  { key: 'minimal', name: 'Minimal', s: { font_size: 18, max_messages: 60, platform_style: 'logo', platform_plain: true, message_bg: 'none', text_shadow: true, show_badges: false, show_channel: false, bg_opacity: 0 } },
+  { key: 'classic', name: 'Classic', s: { font_size: 18, max_messages: 60, platform_style: 'label', platform_plain: false, message_bg: 'none', text_shadow: true, show_badges: true, show_channel: false, bg_opacity: 0 } },
+  { key: 'cards', name: 'Cards', s: { font_size: 18, max_messages: 50, platform_style: 'label', platform_plain: false, message_bg: 'plate', text_shadow: false, show_badges: true, show_channel: false, bg_opacity: 0 } },
+  { key: 'lower', name: 'Lower third', s: { font_size: 20, max_messages: 25, platform_style: 'label', platform_plain: false, message_bg: 'none', text_shadow: false, show_badges: true, show_channel: false, bg_opacity: 60 } },
+]
+const STYLE_FIELDS = ['platform_style', 'platform_plain', 'message_bg', 'text_shadow', 'show_badges', 'show_channel']
+
 function SettingsPanel({ settings, setSettings }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -238,62 +302,64 @@ function SettingsPanel({ settings, setSettings }) {
   }
 
   const pstyle = settings.platform_style || 'label'
+  const mbg = settings.message_bg || 'none'
+  const activePreset = PRESETS.find((p) => STYLE_FIELDS.every((f) => String(p.s[f]) === String(settings[f])))?.key
+
   return (
-    <section className="panel">
+    <section className="panel appearance-panel">
       <h2><SlidersHorizontal size={17} /> Appearance</h2>
-      <p className="sub">Everything previews live on the right. Save to apply to your OBS overlay.</p>
+      <p className="sub">Pick a preset or fine-tune. Your overlay previews live on the right.</p>
 
-      <div className="ctrl">
-        <div className="ctrl-label"><ALargeSmall size={15} /> Font size <span className="val">{settings.font_size}px</span></div>
-        <input type="range" min="10" max="64" value={settings.font_size} onChange={(e) => update({ font_size: Number(e.target.value) })} />
-      </div>
-      <div className="ctrl">
-        <div className="ctrl-label"><List size={15} /> Messages on screen <span className="val">{settings.max_messages}</span></div>
-        <input type="range" min="5" max="200" value={settings.max_messages} onChange={(e) => update({ max_messages: Number(e.target.value) })} />
-      </div>
+      <Field icon={Sparkles} label="Preset">
+        <div className="preset-chips">
+          {PRESETS.map((p) => (
+            <button key={p.key} type="button" className={`preset-chip ${activePreset === p.key ? 'on' : ''}`} onClick={() => update(p.s)}>
+              {p.name}
+            </button>
+          ))}
+        </div>
+      </Field>
 
-      <div className="set-group">
-        <div className="set-grouphead">Platform tag</div>
-        <OptionCards
+      <Field icon={Tag} label="Username tag">
+        <Seg
           value={pstyle}
           onChange={(v) => update({ platform_style: v })}
-          options={[
-            { value: 'label', label: 'Label', demo: (<><span className="demo-chip tw"><TwitchGlyph /> Twitch</span><span className="demo-user">user</span></>) },
-            { value: 'logo', label: 'Logo only', demo: (<><span className="demo-chip tw icon"><TwitchGlyph /></span><span className="demo-user">user</span></>) },
-            { value: 'hidden', label: 'Hidden', demo: (<span className="demo-user">user <span className="demo-msg">gg</span></span>) },
-          ]}
+          options={[{ value: 'label', label: 'Label' }, { value: 'logo', label: 'Logo' }, { value: 'hidden', label: 'Hidden' }]}
         />
-        {pstyle !== 'hidden' && (
-          <OptionCards
-            value={settings.platform_plain ? 'plain' : 'chip'}
+      </Field>
+
+      {pstyle !== 'hidden' && (
+        <Field label="Tag style">
+          <Seg
+            value={settings.platform_plain ? 'plain' : 'boxed'}
             onChange={(v) => update({ platform_plain: v === 'plain' })}
-            options={[
-              { value: 'chip', label: 'Boxed', demo: (<span className="demo-chip tw"><TwitchGlyph /> Twitch</span>) },
-              { value: 'plain', label: 'Plain', demo: (<span className="demo-chip tw plain"><TwitchGlyph /> Twitch</span>) },
-            ]}
+            options={[{ value: 'boxed', label: 'Boxed' }, { value: 'plain', label: 'Plain' }]}
           />
-        )}
-      </div>
+        </Field>
+      )}
 
-      <div className="set-group">
-        <div className="set-grouphead">Message style</div>
-        <OptionCards
-          value={settings.message_bg || 'none'}
+      <Field icon={MessageSquare} label="Message style">
+        <Seg
+          value={mbg}
           onChange={(v) => update({ message_bg: v })}
-          options={[
-            { value: 'none', label: 'Clean', demo: (<span className="demo-line"><span className="demo-user">user</span> nice clip</span>) },
-            { value: 'plate', label: 'Card', demo: (<span className="demo-line plate"><span className="demo-user">user</span> nice clip</span>) },
-          ]}
+          options={[{ value: 'none', label: 'Clean' }, { value: 'plate', label: 'Card' }]}
         />
-      </div>
+      </Field>
 
-      <div className="ctrl">
-        <div className="ctrl-label"><Contrast size={15} /> Background <span className="val">{settings.bg_opacity ? `${settings.bg_opacity}% dark` : 'transparent'}</span></div>
+      <Field icon={ALargeSmall} label={<>Font size <span className="val">{settings.font_size}px</span></>}>
+        <input type="range" min="10" max="64" value={settings.font_size} onChange={(e) => update({ font_size: Number(e.target.value) })} />
+      </Field>
+
+      <Field icon={List} label={<>Messages on screen <span className="val">{settings.max_messages}</span></>}>
+        <input type="range" min="5" max="200" value={settings.max_messages} onChange={(e) => update({ max_messages: Number(e.target.value) })} />
+      </Field>
+
+      <Field icon={Contrast} label={<>Background <span className="val">{settings.bg_opacity ? `${settings.bg_opacity}% dark` : 'transparent'}</span></>}>
         <input type="range" min="0" max="100" value={settings.bg_opacity || 0} onChange={(e) => update({ bg_opacity: Number(e.target.value) })} />
-      </div>
+      </Field>
 
       <div className="set-switches">
-        <SwitchRow on={settings.text_shadow !== false} onChange={(v) => update({ text_shadow: v })} title="Text outline" desc="Adds a shadow so text reads over any video" />
+        <SwitchRow on={settings.text_shadow !== false} onChange={(v) => update({ text_shadow: v })} title="Text outline" desc="Shadow so text reads over any video" />
         <SwitchRow on={!!settings.show_badges} onChange={(v) => update({ show_badges: v })} title="User badges" desc="Show mod / sub badges next to names" />
         <SwitchRow on={!!settings.show_channel} onChange={(v) => update({ show_channel: v })} title="Channel name" desc="Tag which channel each message came from" />
       </div>
@@ -408,7 +474,9 @@ function LiveTab({ token, sources }) {
   const [slowMs, setSlowMs] = useState(4000)
   const [minimal, setMinimal] = useState(false)
   const [hovering, setHovering] = useState(false)
+  const [split, setSplit] = useState(() => { try { return localStorage.getItem('rokit:liveSplit') === '1' } catch { return false } })
   const [top, setTop] = useState({ name: '', n: 0 })
+  const toggleSplit = () => setSplit((v) => { try { localStorage.setItem('rokit:liveSplit', v ? '0' : '1') } catch { /* ignore */ } return !v })
 
   // Pinned messages, persisted locally so they survive refreshes.
   const [pinned, setPinned] = useState(() => {
@@ -458,6 +526,7 @@ function LiveTab({ token, sources }) {
   const isConnected = (s) => liveSources.some((x) => x.platform === s.platform && x.channel === s.channel && x.connected)
   const connectedCount = sources.filter(isConnected).length
   const platforms = [...new Set(sources.map((s) => s.platform))]
+  const splitPlatforms = platforms.length ? platforms : ['twitch', 'kick', 'x']
   const max = 300 // Live tab shows a long scrollback (not the overlay's compact limit)
   const options = {
     showBadges: config ? config.show_badges : true,
@@ -509,24 +578,33 @@ function LiveTab({ token, sources }) {
       <div className="live-main">
         <section className="panel live-chat-panel">
           <div className="live-chat-head">
-            <div className="chat-filters">
-              <button className={`chat-filter ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
-              {platforms.map((p) => (
-                <button key={p} className={`chat-filter ${filter === p ? 'active' : ''}`} data-platform={p} onClick={() => setFilter(p)}>{p}</button>
-              ))}
-            </div>
+            {!split && (
+              <div className="chat-filters">
+                <button className={`chat-filter ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
+                {platforms.map((p) => (
+                  <button key={p} className={`chat-filter ${filter === p ? 'active' : ''}`} data-platform={p} onClick={() => setFilter(p)}>{p}</button>
+                ))}
+              </div>
+            )}
             <div className="chat-search">
               <Search size={13} />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search chat" />
             </div>
             <div className="slow-ctl">
-              <button className={`chat-filter ${minimal ? 'active' : ''}`} onClick={() => setMinimal((v) => !v)} title="Show platform logos only">
-                <Image size={13} /> Logos
+              <button className={`chat-filter ${split ? 'active' : ''}`} onClick={toggleSplit} title="Split into one column per platform">
+                <Columns3 size={13} /> Columns
               </button>
-              <button className={`chat-filter ${slow ? 'active' : ''}`} onClick={() => setSlow((s) => !s)} title="Drip messages at a readable pace">
-                <Gauge size={13} /> Slow
-              </button>
-              {slow && (
+              {!split && (
+                <button className={`chat-filter ${minimal ? 'active' : ''}`} onClick={() => setMinimal((v) => !v)} title="Show platform logos only">
+                  <Image size={13} /> Logos
+                </button>
+              )}
+              {!split && (
+                <button className={`chat-filter ${slow ? 'active' : ''}`} onClick={() => setSlow((s) => !s)} title="Drip messages at a readable pace">
+                  <Gauge size={13} /> Slow
+                </button>
+              )}
+              {!split && slow && (
                 <select value={slowMs} onChange={(e) => setSlowMs(Number(e.target.value))}>
                   {SLOW_RATES.map((r) => <option key={r.ms} value={r.ms}>{r.label}</option>)}
                 </select>
@@ -535,16 +613,39 @@ function LiveTab({ token, sources }) {
             <span className={`status status-${status}`}>{status}</span>
           </div>
 
-          <div
-            className="live-feed-full"
-            style={{ fontSize: `${config?.font_size || 16}px` }}
-            onMouseEnter={() => setHovering(true)}
-            onMouseLeave={() => setHovering(false)}
-          >
-            <ChatList messages={display} className="preview-list" options={options} onPin={pin} />
-            {hovering && <div className="paused-badge"><Pause size={12} /> Paused — release to resume</div>}
-          </div>
-          {slow && queued > 0 && <div className="slow-note">slow mode · {queued} queued</div>}
+          {split ? (
+            <div className="live-columns" style={{ fontSize: `${config?.font_size || 15}px` }}>
+              {splitPlatforms.map((p) => {
+                const colMsgs = messages
+                  .filter((m) => m.platform === p && (!q || (m.text || '').toLowerCase().includes(q)))
+                  .slice(-200)
+                return (
+                  <div key={p} className="live-column" data-platform={p}>
+                    <div className="live-column-head">
+                      <span className="tag" data-platform={p}>{p}</span>
+                      <span className="live-column-count">{colMsgs.length}</span>
+                    </div>
+                    <div className="live-column-feed">
+                      <ChatList messages={colMsgs} className="preview-list" options={{ ...options, showPlatform: false }} onPin={pin} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <>
+              <div
+                className="live-feed-full"
+                style={{ fontSize: `${config?.font_size || 16}px` }}
+                onMouseEnter={() => setHovering(true)}
+                onMouseLeave={() => setHovering(false)}
+              >
+                <ChatList messages={display} className="preview-list" options={options} onPin={pin} />
+                {hovering && <div className="paused-badge"><Pause size={12} /> Paused — release to resume</div>}
+              </div>
+              {slow && queued > 0 && <div className="slow-note">slow mode · {queued} queued</div>}
+            </>
+          )}
         </section>
 
         <aside className="live-side">
