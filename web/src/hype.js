@@ -15,6 +15,7 @@ export const HYPE_DEFAULTS = {
   sensitivity: 5, // 1..10 — how strongly each message fills the bar
   decay: 5, // 1..10 — how fast it falls when chat slows (higher = faster)
   show_value: true,
+  dynamic_color: true, // shift color cold→hot with the level (ignores `color`)
   boost: [
     { word: 'W', weight: 2 }, { word: 'GG', weight: 2 }, { word: 'POG', weight: 2 },
     { word: 'POGGERS', weight: 2 }, { word: 'LETSGO', weight: 2 }, { word: 'LFG', weight: 2 },
@@ -53,9 +54,32 @@ export function normalizeHype(h = {}) {
     sensitivity: clamp(Math.round(Number(n.sensitivity) || 5), 1, 10),
     decay: clamp(Math.round(Number(n.decay) || 5), 1, 10),
     show_value: n.show_value !== false,
+    dynamic_color: n.dynamic_color !== false,
     boost: sanitizeWords(n.boost, HYPE_DEFAULTS.boost),
     drain: sanitizeWords(n.drain, HYPE_DEFAULTS.drain),
   }
+}
+
+// Cold → hot color ramp by level (0..100): sky → green → yellow → orange → red.
+const HEAT = [
+  [0, [56, 189, 248]],
+  [30, [83, 252, 24]],
+  [55, [250, 204, 21]],
+  [78, [251, 146, 60]],
+  [100, [239, 68, 68]],
+]
+export function heatColor(level) {
+  const l = clamp(level, 0, 100)
+  for (let i = 1; i < HEAT.length; i++) {
+    if (l <= HEAT[i][0]) {
+      const [l0, c0] = HEAT[i - 1]
+      const [l1, c1] = HEAT[i]
+      const t = (l - l0) / (l1 - l0 || 1)
+      const m = c0.map((v, k) => Math.round(v + (c1[k] - v) * t))
+      return `rgb(${m[0]}, ${m[1]}, ${m[2]})`
+    }
+  }
+  return 'rgb(239, 68, 68)'
 }
 
 // Tier label + when the "on fire" flourish kicks in.

@@ -15,7 +15,8 @@ import HypeMeter from '../HypeMeter.jsx'
 const TABS = {
   live: { title: 'Live', sub: 'Realtime stream activity and merged chat.' },
   channels: { title: 'Channels', sub: 'Connect the platforms you stream on.' },
-  overlay: { title: 'Stream tools', sub: 'OBS & Streamlabs overlays — merged chat and the hype meter.' },
+  overlay: { title: 'Chat overlay', sub: 'Your merged-chat browser source for OBS & Streamlabs.' },
+  hype: { title: 'Hype meter', sub: 'A live hype bar that reacts to your chat — OBS & Streamlabs.' },
   account: { title: 'Account', sub: 'Profile, email and password.' },
 }
 
@@ -27,7 +28,6 @@ export default function Dashboard() {
   const [sources, setSources] = useState([])
   const [overlay, setOverlay] = useState({ token: '', url: '', hypeUrl: '' })
   const [settings, setSettings] = useState(null)
-  const [tool, setTool] = useState('chat') // stream-tools sub-tab: 'chat' | 'hype'
 
   const loadAll = async () => {
     const [s, o, st] = await Promise.all([
@@ -73,38 +73,29 @@ export default function Dashboard() {
 
         {tab === 'overlay' && (
           <div className="tools">
-            <div className="tools-switch">
-              <button type="button" className={`tool-tab ${tool === 'chat' ? 'on' : ''}`} onClick={() => setTool('chat')}>
-                <MessageSquare size={16} />
-                <span><b>Chat overlay</b><small>Merged Twitch · Kick · X chat</small></span>
-              </button>
-              <button type="button" className={`tool-tab ${tool === 'hype' ? 'on' : ''}`} onClick={() => setTool('hype')}>
-                <Flame size={16} />
-                <span><b>Hype meter</b><small>A bar that reacts to chat energy</small></span>
-              </button>
+            <ToolSubnav tab={tab} go={(t) => setParams({ tab: t })} />
+            <div className="grid two">
+              <div>
+                <OverlayPanel overlay={overlay} setOverlay={setOverlay} />
+                <OverlayHelpPanel urlName="overlay URL" />
+                {settings && <SettingsPanel settings={settings} setSettings={setSettings} />}
+              </div>
+              <PreviewPanel token={overlay.token} settings={settings} />
             </div>
+          </div>
+        )}
 
-            {tool === 'chat' && (
-              <div className="grid two">
-                <div>
-                  <OverlayPanel overlay={overlay} setOverlay={setOverlay} />
-                  <OverlayHelpPanel urlName="overlay URL" />
-                  {settings && <SettingsPanel settings={settings} setSettings={setSettings} />}
-                </div>
-                <PreviewPanel token={overlay.token} settings={settings} />
+        {tab === 'hype' && (
+          <div className="tools">
+            <ToolSubnav tab={tab} go={(t) => setParams({ tab: t })} />
+            <div className="grid two">
+              <div>
+                <HypeOverlayPanel overlay={overlay} />
+                <OverlayHelpPanel urlName="Hype Meter URL" />
+                {settings && <HypeSettingsPanel settings={settings} setSettings={setSettings} />}
               </div>
-            )}
-
-            {tool === 'hype' && (
-              <div className="grid two">
-                <div>
-                  <HypeOverlayPanel overlay={overlay} />
-                  <OverlayHelpPanel urlName="Hype Meter URL" />
-                  {settings && <HypeSettingsPanel settings={settings} setSettings={setSettings} />}
-                </div>
-                <HypePreviewPanel token={overlay.token} settings={settings} />
-              </div>
-            )}
+              <HypePreviewPanel token={overlay.token} settings={settings} />
+            </div>
           </div>
         )}
 
@@ -398,6 +389,22 @@ function SettingsPanel({ settings, setSettings }) {
   )
 }
 
+// In-page sub-tabs for the Stream Tools pages. Shown on mobile (where the rail
+// is a bottom bar without the submenu); hidden on desktop, where the sidebar
+// submenu handles it (see styles.css).
+function ToolSubnav({ tab, go }) {
+  return (
+    <div className="tools-switch tools-subnav">
+      <button type="button" className={`tool-tab ${tab === 'overlay' ? 'on' : ''}`} onClick={() => go('overlay')}>
+        <MessageSquare size={16} /><span><b>Chat overlay</b><small>Merged chat</small></span>
+      </button>
+      <button type="button" className={`tool-tab ${tab === 'hype' ? 'on' : ''}`} onClick={() => go('hype')}>
+        <Flame size={16} /><span><b>Hype meter</b><small>Chat energy bar</small></span>
+      </button>
+    </div>
+  )
+}
+
 // ── hype meter ───────────────────────────────────────────────────────────────
 function HypeOverlayPanel({ overlay }) {
   const [copied, setCopied] = useState(false)
@@ -489,14 +496,26 @@ function HypeSettingsPanel({ settings, setSettings }) {
         <input className="text-input" value={h.label} maxLength={24} onChange={(e) => update({ label: e.target.value })} placeholder="CHAT HYPE" />
       </Field>
 
-      <Field label="Color">
-        <div className="color-row">
-          {HYPE_COLORS.map((c) => (
-            <button key={c} type="button" className={`color-dot ${h.color.toLowerCase() === c.toLowerCase() ? 'on' : ''}`} style={{ background: c }} onClick={() => update({ color: c })} aria-label={c} />
-          ))}
-          <input type="color" className="color-pick" value={h.color} onChange={(e) => update({ color: e.target.value })} aria-label="Custom color" />
-        </div>
+      <Field icon={Contrast} label="Color">
+        <Seg
+          value={h.dynamic_color ? 'heat' : 'fixed'}
+          onChange={(v) => update({ dynamic_color: v === 'heat' })}
+          options={[{ value: 'heat', label: 'Heat (auto)' }, { value: 'fixed', label: 'Fixed' }]}
+        />
       </Field>
+
+      {h.dynamic_color ? (
+        <p className="hype-hint">Color shifts blue → green → yellow → red as hype rises, and the bar glows, flashes and catches fire near the top.</p>
+      ) : (
+        <Field label="Pick a color">
+          <div className="color-row">
+            {HYPE_COLORS.map((c) => (
+              <button key={c} type="button" className={`color-dot ${h.color.toLowerCase() === c.toLowerCase() ? 'on' : ''}`} style={{ background: c }} onClick={() => update({ color: c })} aria-label={c} />
+            ))}
+            <input type="color" className="color-pick" value={h.color} onChange={(e) => update({ color: e.target.value })} aria-label="Custom color" />
+          </div>
+        </Field>
+      )}
 
       <Field icon={Gauge} label={<>Sensitivity <span className="val">{h.sensitivity}</span></>}>
         <input type="range" min="1" max="10" value={h.sensitivity} onChange={(e) => update({ sensitivity: Number(e.target.value) })} />

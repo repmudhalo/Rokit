@@ -43,6 +43,7 @@ function cleanHype(h) {
     sensitivity: clampInt(o.sensitivity, 1, 10, 5),
     decay: clampInt(o.decay, 1, 10, 5),
     show_value: o.show_value !== false,
+    dynamic_color: o.dynamic_color !== false,
     boost: cleanWords(o.boost),
     drain: cleanWords(o.drain),
   }
