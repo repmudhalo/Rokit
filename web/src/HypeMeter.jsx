@@ -13,8 +13,10 @@ export default function HypeMeter({ level = 0, cfg }) {
   const pct = Math.round(level)
   const tier = hypeTier(level)
   const color = cfg.dynamic_color ? heatColor(level) : cfg.color
-  const rootClass = `hype hype-${cfg.style} tier-${tier.replace(/\s+/g, '-')}`
+  const hasBg = cfg.bg_opacity > 0
+  const rootClass = `hype hype-${cfg.style} tier-${tier.replace(/\s+/g, '-')}${hasBg ? ' has-bg' : ''}`
   const rootStyle = { '--hype': color, '--lvl': (level / 100).toFixed(3) }
+  if (hasBg) rootStyle.background = `rgba(0, 0, 0, ${cfg.bg_opacity / 100})`
   const label = <span className="hype-label">{cfg.label}</span>
   const value = cfg.show_value && <span className="hype-pct">{pct}%</span>
 

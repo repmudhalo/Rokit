@@ -516,6 +516,8 @@ input, select, textarea { font-family: var(--mono); }
 
 /* ── chat hype meter (overlay + preview) ─────────────────────────────────────── */
 .hype { --hype: #8cd1ff; font-family: var(--mono); color: #fff; width: 100%; }
+.hype.has-bg { padding: 14px 18px; border-radius: 14px; box-sizing: border-box; }
+.hype-gauge.has-bg { box-sizing: content-box; } /* keep the ring at full size; pad around it */
 .hype-label { font: 800 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.9); }
 .hype-pct { font: 800 13px/1 var(--mono); color: var(--hype); font-variant-numeric: tabular-nums; }
 .hype-pct { color: var(--hype); transition: color 0.2s; }

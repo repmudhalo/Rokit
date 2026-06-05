@@ -525,6 +525,10 @@ function HypeSettingsPanel({ settings, setSettings }) {
         <input type="range" min="1" max="10" value={h.decay} onChange={(e) => update({ decay: Number(e.target.value) })} />
       </Field>
 
+      <Field icon={Contrast} label={<>Background <span className="val">{h.bg_opacity ? `${h.bg_opacity}% dark` : 'transparent'}</span></>}>
+        <input type="range" min="0" max="100" value={h.bg_opacity} onChange={(e) => update({ bg_opacity: Number(e.target.value) })} />
+      </Field>
+
       <Field label={<>Boost words <span className="val">make it rise</span></>}>
         <WordChips words={h.boost} kind="boost" onChange={(w) => update({ boost: w })} />
       </Field>

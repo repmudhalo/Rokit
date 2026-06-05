@@ -16,6 +16,7 @@ export const HYPE_DEFAULTS = {
   decay: 5, // 1..10 — how fast it falls when chat slows (higher = faster)
   show_value: true,
   dynamic_color: true, // shift color cold→hot with the level (ignores `color`)
+  bg_opacity: 0, // 0-100 dark backdrop behind the meter (0 = transparent)
   boost: [
     { word: 'W', weight: 2 }, { word: 'GG', weight: 2 }, { word: 'POG', weight: 2 },
     { word: 'POGGERS', weight: 2 }, { word: 'LETSGO', weight: 2 }, { word: 'LFG', weight: 2 },
@@ -55,6 +56,7 @@ export function normalizeHype(h = {}) {
     decay: clamp(Math.round(Number(n.decay) || 5), 1, 10),
     show_value: n.show_value !== false,
     dynamic_color: n.dynamic_color !== false,
+    bg_opacity: clamp(Math.round(Number(n.bg_opacity) || 0), 0, 100),
     boost: sanitizeWords(n.boost, HYPE_DEFAULTS.boost),
     drain: sanitizeWords(n.drain, HYPE_DEFAULTS.drain),
   }
