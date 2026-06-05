@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, Activity, Tv, MonitorPlay, UserRound, LogIn, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Home, MessagesSquare, Tv, MonitorPlay, UserRound, LogIn, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { useAuth } from '../auth.jsx'
 
@@ -56,7 +56,7 @@ export default function AppShell({ children }) {
             <RailItem icon={Home} label="Home" to="/" active={loc.pathname === '/'} />
             {user && (
               <>
-                <RailItem icon={Activity} label="Live" to="/dashboard?tab=live" active={onDash && tab === 'live'} />
+                <RailItem icon={MessagesSquare} label="Live chat" to="/dashboard?tab=live" active={onDash && tab === 'live'} />
                 <RailItem icon={Tv} label="Channels" to="/dashboard?tab=channels" active={onDash && tab === 'channels'} />
                 <RailItem icon={MonitorPlay} label="Overlay" to="/dashboard?tab=overlay" active={onDash && tab === 'overlay'} />
                 <RailItem icon={UserRound} label="Account" to="/dashboard?tab=account" active={onDash && tab === 'account'} />
