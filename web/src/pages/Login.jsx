@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth.jsx'
+import { apiUrl } from '../apiBase.js'
 import Logo from '../components/Logo.jsx'
 
 export default function Login() {
@@ -37,7 +38,7 @@ export default function Login() {
         <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
         <button className="btn primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         {oauth?.twitch && (
-          <a className="btn twitch" href="/api/auth/twitch">Continue with Twitch</a>
+          <a className="btn twitch" href={apiUrl('/api/auth/twitch')}>Continue with Twitch</a>
         )}
         <p className="auth-alt">
           <Link to="/forgot-password">Forgot password?</Link>

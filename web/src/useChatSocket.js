@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { wsUrl } from './apiBase.js'
 
 // Connects to the server's /ws hub for a given overlay token, applies the
 // initial backlog, then appends live messages. Auto-reconnects with backoff.
@@ -79,8 +80,7 @@ export function useChatSocket({ token, max = 200 } = {}) {
 
     const connect = () => {
       if (stopped) return
-      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-      const ws = new WebSocket(`${proto}://${window.location.host}/ws?token=${encodeURIComponent(token)}`)
+      const ws = new WebSocket(wsUrl(`/ws?token=${encodeURIComponent(token)}`))
       wsRef.current = ws
 
       ws.onopen = () => {

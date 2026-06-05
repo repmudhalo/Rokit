@@ -9,6 +9,14 @@ export const config = {
   sessionSecret: process.env.SESSION_SECRET || 'dev-insecure-change-me',
   cookieName: 'chataggr_session',
   cookieSecure: String(process.env.COOKIE_SECURE).toLowerCase() === 'true',
+  // Cross-site cookies (Vercel frontend ↔ this API) require SameSite=None.
+  // Same-origin (integrated) deploys should leave this 'lax'. None implies Secure.
+  cookieSameSite: (process.env.COOKIE_SAMESITE || 'lax').toLowerCase(),
+  // Allowed browser origins for CORS (comma-separated). Empty = same-origin only.
+  corsOrigins: (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((s) => s.trim().replace(/\/$/, ''))
+    .filter(Boolean),
   backlogSize: num(process.env.BACKLOG_SIZE, 50),
   idleMs: num(process.env.HUB_IDLE_MS, 60000),
   maxSourcesPerUser: num(process.env.MAX_SOURCES_PER_USER, 25),

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.jsx'
+import { apiUrl } from '../apiBase.js'
 import Logo from '../components/Logo.jsx'
 
 export default function Register() {
@@ -38,7 +39,7 @@ export default function Register() {
         <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required placeholder="at least 8 characters" /></label>
         <button className="btn primary" disabled={busy}>{busy ? 'Creating…' : 'Create account'}</button>
         {oauth?.twitch && (
-          <a className="btn twitch" href="/api/auth/twitch">Continue with Twitch</a>
+          <a className="btn twitch" href={apiUrl('/api/auth/twitch')}>Continue with Twitch</a>
         )}
         <p className="auth-alt">Already have an account? <Link to="/login">Sign in</Link></p>
       </form>

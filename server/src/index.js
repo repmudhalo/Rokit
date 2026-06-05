@@ -10,6 +10,7 @@ import compression from 'compression'
 import { config, oauthEnabled } from './config.js'
 import { pool } from './db/pool.js'
 import { attachUser, requireAuth } from './auth/middleware.js'
+import { cors } from './middleware/cors.js'
 import { apiLimiter } from './middleware/ratelimit.js'
 import { authRouter } from './routes/auth.js'
 import { profileRouter } from './routes/profile.js'
@@ -28,6 +29,8 @@ app.set('trust proxy', config.trustProxy)
 // Security headers. CSP + COEP are disabled because the overlay loads emote
 // images and fonts from external CDNs (Twitch/Kick/X, Google Fonts).
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }))
+// Credentialed CORS for cross-origin frontends (no-op for same-origin deploys).
+app.use(cors)
 app.use(compression())
 app.use(express.json({ limit: '64kb' }))
 app.use(cookieParser())

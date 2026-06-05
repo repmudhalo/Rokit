@@ -135,7 +135,7 @@ authRouter.get('/twitch/callback', async (req, res) => {
   res.clearCookie('chataggr_oauth_state', { path: '/' })
 
   if (!code || !state || state !== cookieState || !verifyOAuthState(state)) {
-    return res.redirect('/login?error=oauth_state')
+    return res.redirect(`${config.appUrl}/login?error=oauth_state`)
   }
 
   try {
@@ -159,9 +159,9 @@ authRouter.get('/twitch/callback', async (req, res) => {
     }
 
     setSessionCookie(res, user.id)
-    res.redirect('/dashboard')
+    res.redirect(`${config.appUrl}/dashboard`)
   } catch (err) {
     console.error('[oauth] twitch callback failed:', err.message)
-    res.redirect('/login?error=oauth_failed')
+    res.redirect(`${config.appUrl}/login?error=oauth_failed`)
   }
 })

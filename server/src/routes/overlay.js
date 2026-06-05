@@ -1,11 +1,14 @@
 import { Router } from 'express'
+import { config } from '../config.js'
 import * as users from '../repos/users.js'
 
 export const overlayRouter = Router()
 
 // The overlay token lives on the user row; expose it + the ready-to-use URL.
+// The overlay is a frontend route, so point at APP_URL (the public frontend);
+// fall back to the request host for a plain integrated/same-origin deploy.
 const overlayUrl = (req, token) => {
-  const base = `${req.protocol}://${req.get('host')}`
+  const base = config.appUrl || `${req.protocol}://${req.get('host')}`
   return `${base}/overlay?token=${token}`
 }
 

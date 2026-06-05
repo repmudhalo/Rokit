@@ -21,18 +21,23 @@ export function verifySession(token) {
   }
 }
 
+// SameSite=None (cross-site cookies) is only honoured by browsers when Secure,
+// so force Secure whenever the cookie is cross-site.
+const sameSite = config.cookieSameSite
+const secure = config.cookieSecure || sameSite === 'none'
+
 export function setSessionCookie(res, userId) {
   res.cookie(config.cookieName, signSession(userId), {
     httpOnly: true,
-    secure: config.cookieSecure,
-    sameSite: 'lax',
+    secure,
+    sameSite,
     maxAge: MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
     path: '/',
   })
 }
 
 export function clearSessionCookie(res) {
-  res.clearCookie(config.cookieName, { path: '/' })
+  res.clearCookie(config.cookieName, { path: '/', sameSite, secure })
 }
 
 // Short-lived signed state for the OAuth round-trip (CSRF protection).

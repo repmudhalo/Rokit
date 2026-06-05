@@ -1,7 +1,9 @@
+import { apiUrl } from './apiBase.js'
+
 // Thin fetch wrapper. Always sends cookies (session) and parses JSON, throwing
 // an Error with the server's message on non-2xx.
 async function request(method, path, body) {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     method,
     credentials: 'include',
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
