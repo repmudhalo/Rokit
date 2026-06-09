@@ -5,6 +5,7 @@
 import WebSocket from 'ws'
 import { ChatSource } from './base.js'
 import { makeMessage } from '../normalize.js'
+import { getTwitchEmotes, expandThirdPartyEmotes } from '../emotes/thirdparty.js'
 
 const TWITCH_IRC_WS = 'wss://irc-ws.chat.twitch.tv:443'
 
@@ -14,6 +15,8 @@ export class TwitchSource extends ChatSource {
     this.ws = null
     this.stopped = false
     this.reconnectDelay = 1000
+    this.emotes = new Map() // 7TV/BTTV/FFZ: code -> { url } (lazy-loaded by room-id)
+    this.emoteRoomId = null
   }
 
   async start() {
@@ -71,6 +74,21 @@ export class TwitchSource extends ChatSource {
       ? tags['badges'].split(',').map((b) => b.split('/')[0]).filter(Boolean)
       : []
 
+    // The channel's Twitch user id arrives on every message; use it to lazily
+    // load this channel's 7TV/BTTV/FFZ emote set (cached, one fetch per channel).
+    const roomId = tags['room-id']
+    if (roomId && this.emoteRoomId !== roomId) {
+      this.emoteRoomId = roomId
+      getTwitchEmotes(roomId).then((m) => { this.emotes = m }).catch(() => {})
+    }
+
+    // Native Twitch emotes first, then expand any third-party codes in the text.
+    let fragments = buildTwitchFragments(parsed.text, tags['emotes'])
+    if (this.emotes.size) {
+      const expanded = expandThirdPartyEmotes(fragments || [{ type: 'text', text: parsed.text }], this.emotes)
+      if (expanded.some((f) => f.type === 'emote')) fragments = expanded
+    }
+
     this.emitMessage(
       makeMessage({
         platform: 'twitch',
@@ -81,7 +99,7 @@ export class TwitchSource extends ChatSource {
         color: tags['color'] || '',
         badges,
         text: parsed.text,
-        fragments: buildTwitchFragments(parsed.text, tags['emotes']),
+        fragments,
         timestamp: tags['tmi-sent-ts'] ? Number(tags['tmi-sent-ts']) : Date.now(),
       }),
     )
