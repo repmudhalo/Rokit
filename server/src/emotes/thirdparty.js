@@ -8,8 +8,10 @@
 const TTL_MS = 60 * 60 * 1000 // refresh a channel's set at most hourly
 const FETCH_TIMEOUT = 6000
 
-const channelCache = new Map() // roomId -> { at, map }
-let globalCache = null // { at, map }
+const channelCache = new Map() // twitch roomId -> { at, map }
+const kickCache = new Map() // kick userId -> { at, map }
+let globalCache = null // twitch (7TV+BTTV+FFZ) global { at, map }
+let seventvGlobalCache = null // 7TV-only global { at, list } (shared by twitch+kick)
 
 async function fetchJson(url) {
   const ctrl = new AbortController()
@@ -60,15 +62,22 @@ function addAll(map, list) {
   }
 }
 
+async function loadSeventvGlobal() {
+  if (seventvGlobalCache && Date.now() - seventvGlobalCache.at < TTL_MS) return seventvGlobalCache.list
+  const list = parseSeventv(await fetchJson('https://7tv.io/v3/emote-sets/global'))
+  seventvGlobalCache = { at: Date.now(), list }
+  return list
+}
+
 async function loadGlobal() {
   if (globalCache && Date.now() - globalCache.at < TTL_MS) return globalCache.map
   const [bttv, ffz, stv] = await Promise.all([
     fetchJson('https://api.betterttv.net/3/cached/emotes/global'),
     fetchJson('https://api.frankerfacez.com/v1/set/global'),
-    fetchJson('https://7tv.io/v3/emote-sets/global'),
+    loadSeventvGlobal(),
   ])
   const map = new Map()
-  addAll(map, parseSeventv(stv))
+  addAll(map, stv)
   addAll(map, parseBttvGlobal(bttv))
   addAll(map, parseFfz(ffz))
   globalCache = { at: Date.now(), map }
@@ -95,6 +104,24 @@ export async function getTwitchEmotes(roomId) {
   addAll(map, parseFfz(ffz))
   for (const [code, val] of global) if (!map.has(code)) map.set(code, val) // fill globals
   channelCache.set(roomId, { at: Date.now(), map })
+  return map
+}
+
+// Resolve emotes for a Kick channel (by its numeric Kick user id). Kick only
+// has 7TV third-party emotes — global + this channel's set.
+export async function getKickEmotes(userId) {
+  const globalList = await loadSeventvGlobal()
+  if (userId) {
+    const cached = kickCache.get(userId)
+    if (cached && Date.now() - cached.at < TTL_MS) return cached.map
+  }
+  const map = new Map()
+  if (userId) {
+    const stv = await fetchJson(`https://7tv.io/v3/users/kick/${userId}`)
+    addAll(map, parseSeventv(stv?.emote_set))
+  }
+  addAll(map, globalList) // globals fill in, channel wins on clash
+  if (userId) kickCache.set(userId, { at: Date.now(), map })
   return map
 }
 

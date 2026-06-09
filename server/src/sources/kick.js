@@ -9,6 +9,7 @@
 import WebSocket from 'ws'
 import { ChatSource } from './base.js'
 import { makeMessage } from '../normalize.js'
+import { getKickEmotes, expandThirdPartyEmotes } from '../emotes/thirdparty.js'
 
 // Public Pusher app key Kick's web client uses (not a secret).
 const PUSHER_KEY = '32cbd69e4b950bf97679'
@@ -26,6 +27,8 @@ export class KickSource extends ChatSource {
   constructor({ channel, chatroomId = null }) {
     super({ platform: 'kick', channel: channel.toLowerCase() })
     this.chatroomId = chatroomId // may be pre-set via override
+    this.userId = null // Kick user id (for 7TV emotes), set during channel lookup
+    this.emotes = new Map() // 7TV: code -> { url }
     this.ws = null
     this.stopped = false
     this.reconnectDelay = 1000
@@ -36,6 +39,8 @@ export class KickSource extends ChatSource {
     if (!this.chatroomId) {
       this.chatroomId = await this.resolveChatroomId()
     }
+    // Load 7TV emotes (global, plus this channel's set if we know its user id).
+    getKickEmotes(this.userId).then((m) => { this.emotes = m }).catch(() => {})
     if (!this.chatroomId) {
       this.log(
         'could not resolve chatroom id (Cloudflare?). Set KICK_CHATROOM_OVERRIDE="' +
@@ -58,6 +63,7 @@ export class KickSource extends ChatSource {
         return null
       }
       const data = await res.json()
+      this.userId = data?.user_id ?? null // for 7TV channel emotes
       return data?.chatroom?.id ?? null
     } catch (err) {
       this.log('channel lookup failed:', err.message)
@@ -134,9 +140,14 @@ export class KickSource extends ChatSource {
       : []
 
     const content = msg.content || ''
-    const fragments = buildKickFragments(content)
     // Plain-text fallback: replace [emote:id:name] tokens with just the name.
     const text = content.replace(KICK_EMOTE_RE, '$2')
+    // Native Kick emotes first, then expand any 7TV codes in the text.
+    let fragments = buildKickFragments(content)
+    if (this.emotes.size) {
+      const expanded = expandThirdPartyEmotes(fragments || [{ type: 'text', text }], this.emotes)
+      if (expanded.some((f) => f.type === 'emote')) fragments = expanded
+    }
 
     this.emitMessage(
       makeMessage({
