@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Tv, MonitorPlay, UserRound, Link2, SlidersHorizontal, KeyRound, Eye, Copy, RefreshCw, ExternalLink, Plus, Trash2, Activity, MessageSquare, Pin, X, Search, Gauge, Pause, Image,
-  ALargeSmall, List, Contrast, Tag, BadgeCheck, Sparkles, Info, Columns3, Flame,
+  ALargeSmall, List, Contrast, Tag, BadgeCheck, Sparkles, Info, Columns3, Flame, Play,
 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { api } from '../api.js'
@@ -17,6 +17,7 @@ const TABS = {
   channels: { title: 'Channels', sub: 'Connect the platforms you stream on.' },
   overlay: { title: 'Chat overlay', sub: 'Your merged-chat browser source for OBS & Streamlabs.' },
   hype: { title: 'Hype meter', sub: 'A live hype bar that reacts to your chat — OBS & Streamlabs.' },
+  clips: { title: 'Clips', sub: 'Recent clips from your connected channels.' },
   analytics: { title: 'Analytics', sub: 'Live session stats and hype clip markers for your VOD.' },
   account: { title: 'Account', sub: 'Profile, email and password.' },
 }
@@ -99,6 +100,8 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {tab === 'clips' && <ClipsTab />}
 
         {tab === 'analytics' && <AnalyticsTab />}
 
@@ -564,6 +567,143 @@ function HypePreviewPanel({ token, settings }) {
       </div>
       <p className="muted small" style={{ marginTop: 10 }}>Reacts to live chat speed and your boost/drain words. Go live and chat to see it move.</p>
     </section>
+  )
+}
+
+// ── clips ────────────────────────────────────────────────────────────────────
+const relTime = (iso) => {
+  if (!iso) return ''
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return 'just now'
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24); if (d < 30) return `${d}d ago`
+  const mo = Math.floor(d / 30); if (mo < 12) return `${mo}mo ago`
+  return `${Math.floor(mo / 12)}y ago`
+}
+const clipDur = (sec) => {
+  const s = Math.max(0, Math.round(sec || 0))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+// Modal player: Twitch via iframe embed, Kick via HLS (hls.js lazy-loaded).
+function ClipPlayer({ clip, onClose }) {
+  const videoRef = useRef(null)
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || clip.platform !== 'kick' || !clip.video) return
+    let hls; let cancelled = false
+    if (video.canPlayType('application/vnd.apple.mpegurl')) { video.src = clip.video; return }
+    const attach = () => {
+      if (cancelled) return
+      if (window.Hls && window.Hls.isSupported()) { hls = new window.Hls(); hls.loadSource(clip.video); hls.attachMedia(video) }
+      else { video.src = clip.video }
+    }
+    if (window.Hls) attach()
+    else {
+      let sc = document.querySelector('script[data-hls]')
+      if (!sc) { sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js'; sc.dataset.hls = '1'; document.head.appendChild(sc) }
+      sc.addEventListener('load', attach, { once: true })
+    }
+    return () => { cancelled = true; try { hls?.destroy() } catch { /* ignore */ } }
+  }, [clip])
+
+  return (
+    <div className="clip-modal" onClick={onClose}>
+      <div className="clip-modal-box" onClick={(e) => e.stopPropagation()}>
+        <div className="clip-modal-head">
+          <span className="tag" data-platform={clip.platform}>{clip.platform}</span>
+          <span className="clip-modal-title">{clip.title}</span>
+          <a className="btn ghost sm" href={clip.url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open</a>
+          <button className="btn ghost sm" onClick={onClose} aria-label="Close"><X size={15} /></button>
+        </div>
+        <div className="clip-modal-player">
+          {clip.platform === 'twitch' ? (
+            <iframe title={clip.title} src={`https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip.id)}&parent=${window.location.hostname}&autoplay=true`} allowFullScreen />
+          ) : clip.video ? (
+            <video ref={videoRef} controls autoPlay playsInline />
+          ) : (
+            <div className="clip-fallback">Can’t embed this clip. <a href={clip.url} target="_blank" rel="noreferrer">Open on {clip.platform}</a></div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ClipsTab() {
+  const [clips, setClips] = useState(null)
+  const [meta, setMeta] = useState({})
+  const [filter, setFilter] = useState('all')
+  const [sort, setSort] = useState('recent')
+  const [playing, setPlaying] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try { const d = await api.get('/api/clips'); setClips(d.clips || []); setMeta(d) }
+    catch { setClips([]) } finally { setLoading(false) }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const platforms = [...new Set((clips || []).map((c) => c.platform))]
+  let list = (clips || []).filter((c) => filter === 'all' || c.platform === filter)
+  if (sort === 'top') list = [...list].sort((a, b) => (b.views || 0) - (a.views || 0))
+
+  return (
+    <div className="clips">
+      <div className="clips-bar">
+        <div className="chat-filters">
+          <button className={`chat-filter ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
+          {platforms.map((p) => (
+            <button key={p} className={`chat-filter ${filter === p ? 'active' : ''}`} data-platform={p} onClick={() => setFilter(p)}>{p}</button>
+          ))}
+        </div>
+        <div className="clips-bar-right">
+          <Seg value={sort} onChange={setSort} options={[{ value: 'recent', label: 'Recent' }, { value: 'top', label: 'Top' }]} />
+          <button className="btn ghost sm" onClick={load} disabled={loading}><RefreshCw size={14} /> {loading ? '…' : 'Refresh'}</button>
+        </div>
+      </div>
+
+      {clips === null ? (
+        <div className="clips-empty">Loading clips…</div>
+      ) : list.length === 0 ? (
+        <div className="clips-empty">
+          {clips.length === 0 ? (
+            <>
+              No clips found yet.
+              {meta.hasTwitch && !meta.twitchConfigured && (
+                <div className="muted small" style={{ marginTop: 8 }}>Twitch clips need the server’s Twitch API credentials configured.</div>
+              )}
+            </>
+          ) : 'No clips for this filter.'}
+        </div>
+      ) : (
+        <div className="clips-grid">
+          {list.map((c) => (
+            <button className="clip-card" key={`${c.platform}:${c.id}`} onClick={() => setPlaying(c)}>
+              <div className="clip-thumb">
+                {c.thumbnail ? <img src={c.thumbnail} alt="" loading="lazy" /> : <div className="clip-thumb-ph" />}
+                <span className="clip-play"><Play size={18} /></span>
+                {c.duration > 0 && <span className="clip-dur">{clipDur(c.duration)}</span>}
+                <span className="tag clip-plat" data-platform={c.platform}>{c.platform}</span>
+              </div>
+              <div className="clip-info">
+                <div className="clip-title" title={c.title}>{c.title}</div>
+                <div className="clip-meta">{(c.views || 0).toLocaleString()} views · {c.channel}{c.creator ? ` · ${c.creator}` : ''} · {relTime(c.createdAt)}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {playing && <ClipPlayer clip={playing} onClose={() => setPlaying(null)} />}
+    </div>
   )
 }
 

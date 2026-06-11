@@ -19,6 +19,7 @@ import { sourcesRouter } from './routes/sources.js'
 import { settingsRouter } from './routes/settings.js'
 import { overlayRouter } from './routes/overlay.js'
 import { analyticsRouter } from './routes/analytics.js'
+import { clipsRouter } from './routes/clips.js'
 import { attachWebSocket } from './ws.js'
 import { manager } from './hub/manager.js'
 
@@ -63,6 +64,7 @@ app.use('/api/sources', requireAuth, sourcesRouter)
 app.use('/api/settings', requireAuth, settingsRouter)
 app.use('/api/overlay', requireAuth, overlayRouter)
 app.use('/api/analytics', requireAuth, analyticsRouter)
+app.use('/api/clips', requireAuth, clipsRouter)
 
 // Unknown API routes should 404 as JSON, not fall through to the SPA.
 app.use('/api', (_req, res) => res.status(404).json({ error: 'not found' }))
