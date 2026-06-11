@@ -4,10 +4,11 @@
 // channel, fanned out to every hub watching it) via broadcast().
 
 export class Hub {
-  constructor({ backlogSize = 50 } = {}) {
+  constructor({ backlogSize = 50, onMessage = null } = {}) {
     this.clients = new Set()
     this.backlog = []
     this.backlogSize = backlogSize
+    this.onMessage = onMessage // analytics tap: called for every broadcast message
   }
 
   addClient(ws) {
@@ -20,6 +21,7 @@ export class Hub {
   }
 
   broadcast(msg) {
+    if (this.onMessage) { try { this.onMessage(msg) } catch { /* analytics must never break chat */ } }
     this.backlog.push(msg)
     if (this.backlog.length > this.backlogSize) this.backlog.shift()
 

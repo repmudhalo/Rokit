@@ -2,6 +2,7 @@ import { Hub } from './hub.js'
 import { config } from '../config.js'
 import * as sourcesRepo from '../repos/sources.js'
 import { SharedSourceRegistry } from './registry.js'
+import { SessionTracker } from '../analytics/tracker.js'
 
 const toSpec = (row) => ({ platform: row.platform, channel: row.channel, chatroomId: row.chatroom_id || null })
 const specKey = (s) => `${s.platform}:${s.channel}${s.platform === 'kick' && s.chatroomId ? ':' + s.chatroomId : ''}`
@@ -22,8 +23,10 @@ class UserHubManager {
   async acquire(userId) {
     let entry = this.entries.get(userId)
     if (!entry) {
+      const tracker = new SessionTracker(userId)
       entry = {
-        hub: new Hub({ backlogSize: this.backlogSize }),
+        hub: new Hub({ backlogSize: this.backlogSize, onMessage: (m) => tracker.record(m) }),
+        tracker,
         clients: 0,
         idleTimer: null,
         specs: [],
@@ -85,8 +88,15 @@ class UserHubManager {
     entry.idleTimer = null
     if (entry.clients > 0) return // reconnected before the timer fired
     for (const spec of entry.specs) this.registry.unsubscribe(spec, entry.hub)
+    entry.tracker?.stop()
     this.entries.delete(userId)
     console.log(`[hub] user ${userId}: idle, released`)
+  }
+
+  // Live analytics snapshot for the current session (or inactive if no hub).
+  analyticsFor(userId) {
+    const entry = this.entries.get(userId)
+    return entry?.tracker ? entry.tracker.snapshot() : { active: false }
   }
 
   // Snapshot for /api/live: per-channel connection status + shared-viewer count.

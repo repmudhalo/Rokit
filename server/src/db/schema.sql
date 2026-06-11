@@ -62,3 +62,15 @@ ALTER TABLE overlay_settings ADD COLUMN IF NOT EXISTS bg_opacity     INT NOT NUL
 -- Chat Hype Meter config (style, label, color, sensitivity, decay, keyword
 -- weights). Stored as JSON so the shape can evolve without migrations.
 ALTER TABLE overlay_settings ADD COLUMN IF NOT EXISTS hype JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Hype clip markers: timestamps of chat-activity spikes, for "clip this moment".
+-- into_ms = milliseconds into the streaming session when the spike was detected.
+CREATE TABLE IF NOT EXISTS hype_markers (
+  id         BIGSERIAL PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  into_ms    BIGINT NOT NULL DEFAULT 0,
+  rate       INT NOT NULL DEFAULT 0,   -- messages/min at the spike
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS hype_markers_user_idx ON hype_markers(user_id, at DESC);

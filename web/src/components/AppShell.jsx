@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, MessagesSquare, MessageSquare, Tv, Wrench, Flame, UserRound, LogIn, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Home, MessagesSquare, MessageSquare, Tv, Wrench, Flame, BarChart3, UserRound, LogIn, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import Logo from './Logo.jsx'
 import { useAuth } from '../auth.jsx'
 
@@ -65,6 +65,7 @@ export default function AppShell({ children }) {
                     <RailItem icon={Flame} label="Hype meter" to="/dashboard?tab=hype" active={tab === 'hype'} className="rail-subitem" />
                   </div>
                 )}
+                <RailItem icon={BarChart3} label="Analytics" to="/dashboard?tab=analytics" active={onDash && tab === 'analytics'} />
                 <RailItem icon={UserRound} label="Account" to="/dashboard?tab=account" active={onDash && tab === 'account'} />
               </>
             )}

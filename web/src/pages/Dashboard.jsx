@@ -17,6 +17,7 @@ const TABS = {
   channels: { title: 'Channels', sub: 'Connect the platforms you stream on.' },
   overlay: { title: 'Chat overlay', sub: 'Your merged-chat browser source for OBS & Streamlabs.' },
   hype: { title: 'Hype meter', sub: 'A live hype bar that reacts to your chat — OBS & Streamlabs.' },
+  analytics: { title: 'Analytics', sub: 'Live session stats and hype clip markers for your VOD.' },
   account: { title: 'Account', sub: 'Profile, email and password.' },
 }
 
@@ -98,6 +99,8 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {tab === 'analytics' && <AnalyticsTab />}
 
         {tab === 'account' && (
           <div className="grid narrow"><AccountPanel /></div>
@@ -561,6 +564,125 @@ function HypePreviewPanel({ token, settings }) {
       </div>
       <p className="muted small" style={{ marginTop: 10 }}>Reacts to live chat speed and your boost/drain words. Go live and chat to see it move.</p>
     </section>
+  )
+}
+
+// ── analytics ────────────────────────────────────────────────────────────────
+const PLAT_COLOR = { twitch: 'var(--twitch)', kick: 'var(--kick)', x: 'var(--x)' }
+
+const fmtDur = (ms) => {
+  const s = Math.floor((ms || 0) / 1000)
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+const fmtInto = (ms) => {
+  const s = Math.max(0, Math.floor((ms || 0) / 1000))
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+  const mm = String(m).padStart(2, '0'), ss = String(sec).padStart(2, '0')
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`
+}
+const fmtClock = (at) => {
+  try { return new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) } catch { return '' }
+}
+
+function Sparkline({ samples }) {
+  if (!samples || samples.length < 2) return <div className="spark-empty">Waiting for chat activity…</div>
+  const W = 600, H = 120, pad = 4
+  const maxR = Math.max(10, ...samples.map((s) => s.rate))
+  const n = samples.length
+  const X = (i) => pad + (i / (n - 1)) * (W - 2 * pad)
+  const Y = (r) => H - pad - (r / maxR) * (H - 2 * pad)
+  const line = samples.map((s, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(s.rate).toFixed(1)}`).join(' ')
+  const area = `${line} L${X(n - 1).toFixed(1)},${H - pad} L${X(0).toFixed(1)},${H - pad} Z`
+  return (
+    <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <path className="spark-area" d={area} />
+      <path className="spark-line" d={line} />
+    </svg>
+  )
+}
+
+function AnalyticsTab() {
+  const [data, setData] = useState({ session: { active: false }, markers: [] })
+  const [copied, setCopied] = useState(null)
+  const load = useCallback(async () => {
+    try { setData(await api.get('/api/analytics')) } catch { /* ignore */ }
+  }, [])
+  useEffect(() => {
+    load()
+    const id = setInterval(load, 4000)
+    return () => clearInterval(id)
+  }, [load])
+
+  const s = data.session || { active: false }
+  const markers = data.markers || []
+  const platforms = Object.entries(s.byPlatform || {}).sort((a, b) => b[1] - a[1])
+  const totalP = platforms.reduce((a, [, n]) => a + n, 0) || 1
+
+  const copy = async (m) => {
+    try { await navigator.clipboard.writeText(fmtInto(m.into_ms)); setCopied(m.id); setTimeout(() => setCopied(null), 1500) } catch { /* ignore */ }
+  }
+  const del = async (m) => { await api.del(`/api/analytics/markers/${m.id}`); load() }
+  const clearAll = async () => { if (confirm('Delete all clip markers?')) { await api.del('/api/analytics/markers'); load() } }
+
+  return (
+    <div className="analytics">
+      <div className="live-stats">
+        <StatTile label="Status" value={s.active ? 'Live' : 'Idle'} accent={s.active} />
+        <StatTile label="Messages" value={(s.messages || 0).toLocaleString()} />
+        <StatTile label="Msgs / Min" value={s.perMin || 0} />
+        <StatTile label="Peak / Min" value={s.peakPerMin || 0} />
+        <StatTile label="Session" value={s.active ? fmtDur(s.durationMs) : '—'} />
+      </div>
+
+      <div className="grid two">
+        <section className="panel">
+          <h2><Activity size={17} /> Chat activity</h2>
+          <p className="sub">Messages per minute this session. Spikes are saved as clip markers automatically.</p>
+          <div className="spark-wrap"><Sparkline samples={s.samples} /></div>
+
+          <div className="an-split">
+            <div className="an-col">
+              <h3 className="an-h">By platform</h3>
+              {platforms.length === 0 ? <div className="muted small">No messages yet.</div> : platforms.map(([p, n]) => (
+                <div className="an-bar-row" key={p}>
+                  <span className="tag" data-platform={p}>{p}</span>
+                  <div className="an-bar"><div style={{ width: `${(n / totalP) * 100}%`, background: PLAT_COLOR[p] || 'var(--accent)' }} /></div>
+                  <span className="an-bar-n">{n.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+            <div className="an-col">
+              <h3 className="an-h">Top chatters</h3>
+              {(s.topChatters || []).length === 0 ? <div className="muted small">No chatters yet.</div> : (
+                <ol className="an-chatters">
+                  {s.topChatters.map((c) => <li key={c.name}><span className="an-chatter-name">{c.name}</span><span className="an-chatter-n">{c.n}</span></li>)}
+                </ol>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <h2><Flame size={16} /> Clip markers {markers.length > 0 && <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={clearAll}>Clear</button>}</h2>
+          <p className="sub">Hype spikes we caught — copy the timestamp and jump to it in your VOD.</p>
+          {markers.length === 0 ? (
+            <div className="source-empty">No markers yet. They appear automatically when chat pops off.</div>
+          ) : (
+            <ul className="marker-list">
+              {markers.map((m) => (
+                <li key={m.id} className="marker-row">
+                  <span className="marker-time">{fmtInto(m.into_ms)}</span>
+                  <span className="marker-meta">{m.rate}/min · {fmtClock(m.at)}</span>
+                  <button className="btn ghost sm" title="Copy timestamp" onClick={() => copy(m)}>{copied === m.id ? '✓' : <Copy size={13} />}</button>
+                  <button className="btn ghost sm" title="Delete" onClick={() => del(m)}><X size={13} /></button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </div>
   )
 }
 
